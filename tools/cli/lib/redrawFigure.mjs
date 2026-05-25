@@ -69,63 +69,85 @@ function stripFences(s) {
   return m ? m[1] : s;
 }
 
+function wrapForSandbox(code, outPath) {
+  return [
+    "import os",
+    `OUT_PATH = ${JSON.stringify(outPath)}`,
+    "import sys",
+    "try:",
+    ...code.split("\n").map(l => "    " + l),
+    "except Exception as e:",
+    '    sys.stderr.write(f"REDRAW_FAIL: {e}\\n")',
+    "    sys.exit(2)",
+    "",
+  ].join("\n");
+}
+
 /**
  * Try to redraw a single raster figure as a clean matplotlib plot.
  * Returns the path to the new PNG on success, or null on failure (caller
  * should keep the original).
  */
-export async function redrawFigure({ apiKey, model, sourcePath, workDir, retries = 1 }) {
-  await mkdir(workDir, { recursive: true });
+export async function redrawFigure({ apiKey, model, models, sourcePath, workDir, retries = 1 }) {
   const base = path.basename(sourcePath, path.extname(sourcePath));
-  const scriptPath = path.join(workDir, `${base}.py`);
+  await mkdir(workDir, { recursive: true });
   const outPath = path.join(workDir, `${base}_redrawn.png`);
 
-  let dataUrl;
-  try { dataUrl = await dataUrlFromFile(sourcePath); } catch { return null; }
+  // Cache hit: skip the API call entirely if we already produced this redraw.
+  try {
+    const st = await stat(outPath);
+    if (st.isFile() && st.size > 1024) return outPath;
+  } catch { /* not cached */ }
 
-  let previousCode = null;
-  let previousErr = null;
+  const modelList = models || (model ? [model] : ["google/gemma-4-31b-it:free", "nvidia/nemotron-nano-12b-v2-vl:free"]);
 
-  for (let attempt = 0; attempt <= retries; attempt++) {
-    let code;
-    try {
-      const messages = [
-        { role: "system", content: REDRAW_PROMPT },
-        {
-          role: "user",
-          content: [
-            { type: "text", text: "Воссоздай этот рисунок одним matplotlib-скриптом." },
-            { type: "image_url", image_url: { url: dataUrl } },
-          ],
-        },
-      ];
-      if (attempt > 0 && previousCode && previousErr) {
-        messages.push({ role: "assistant", content: previousCode });
-        messages.push({
-          role: "user",
-          content: `Скрипт упал с ошибкой:\n${previousErr.slice(0, 800)}\n\nИсправь и перешли ВЕСЬ скрипт заново. Не забудь определить ВСЕ переменные численно.`,
-        });
-      }
-      const reply = await chat({ apiKey, model, maxTokens: 4096, temperature: 0.1, messages });
-      code = stripFences(reply.trim());
-    } catch {
-      return null;
-    }
+  // Pull bytes once for all attempts.
+  const buf = await readFile(sourcePath);
+  const base64 = buf.toString("base64");
+  const dataUrl = `data:image/png;base64,${base64}`;
+  const scriptPath = path.join(workDir, `${base}.py`);
 
-    if (!code || !/savefig\(/.test(code)) return null;
-
-    const wrapper = `import os\nOUT_PATH = ${JSON.stringify(outPath)}\nimport sys\ntry:\n${code.split("\n").map(l => "    " + l).join("\n")}\nexcept Exception as e:\n    sys.stderr.write(f"REDRAW_FAIL: {e}\\n")\n    sys.exit(2)\n`;
-    await writeFile(scriptPath, wrapper, "utf8");
-
-    const res = await runPython(scriptPath, workDir);
-    if (res.code === 0) {
+  for (const m of modelList) {
+    let code = null;
+    for (let attempt = 0; attempt <= retries; attempt++) {
       try {
-        const st = await stat(outPath);
-        if (st.size >= 1000) return outPath;
-      } catch {}
+        const reply = await chat({
+          apiKey,
+          model: m,
+          maxTokens: 2200,
+          temperature: 0.2,
+          messages: [
+            { role: "system", content: REDRAW_PROMPT },
+            {
+              role: "user",
+              content: [
+                { type: "text", text: "Воссоздай этот рисунок в matplotlib. ОТДЕЛЬНЫМИ СТРОКАМИ. Все переменные определи численно." },
+                { type: "image_url", image_url: { url: dataUrl } },
+              ],
+            },
+          ],
+        });
+        code = stripFences(reply.trim());
+        break;
+      } catch (e) {
+        if (attempt < retries) {
+          await new Promise((resolve) => setTimeout(resolve, 2000));
+          continue;
+        }
+        process.stderr.write(`  redraw via ${m} failed: ${String(e.message || e).slice(0,140)}\n`);
+        code = null;
+      }
     }
-    previousCode = code;
-    previousErr = res.err || "(unknown)";
+
+    if (!code || !/savefig\(/.test(code)) continue;
+
+    // Wrap user code with sandbox preamble.
+    const fullScript = wrapForSandbox(code, outPath);
+    await writeFile(scriptPath, fullScript);
+
+    const ok = await runPython(scriptPath);
+    if (ok) return outPath;
+    // else loop to next model
   }
   return null;
 }
@@ -134,7 +156,8 @@ export async function redrawFigure({ apiKey, model, sourcePath, workDir, retries
  * Map { pageNum: [{path, ...}] } -> same shape with paths replaced by redrawn
  * versions where redrawing succeeded. Original files left untouched.
  */
-export async function redrawAll({ apiKey, model, imagesByPage, workDir, concurrency = 3, onProgress }) {
+export async function redrawAll({ apiKey, model, models, imagesByPage, workDir, concurrency = 1, onProgress }) {
+  const modelList = models || (model ? [model] : ["google/gemma-4-31b-it:free", "nvidia/nemotron-nano-12b-v2-vl:free"]);
   const entries = [];
   for (const [page, items] of Object.entries(imagesByPage)) {
     for (let i = 0; i < items.length; i++) {
@@ -148,7 +171,7 @@ export async function redrawAll({ apiKey, model, imagesByPage, workDir, concurre
     // Simple semaphore via promise chain
     while (sema.length >= concurrency) await Promise.race(sema);
     const job = (async () => {
-      const redrawn = await redrawFigure({ apiKey, model, sourcePath: e.item.path, workDir });
+      const redrawn = await redrawFigure({ apiKey, models: modelList, sourcePath: e.item.path, workDir });
       if (redrawn) {
         result[e.page][e.idx] = { ...e.item, path: redrawn, redrawn: true };
       }
