@@ -41,6 +41,8 @@ jobs:
           BASE_PATH: /${{ github.event.repository.name }}/
           VITE_OPENROUTER_KEY_1: ${{ secrets.OPENROUTER_KEY_1 }}
           VITE_OPENROUTER_KEY_2: ${{ secrets.OPENROUTER_KEY_2 }}
+          VITE_OPENROUTER_KEY_3: ${{ secrets.OPENROUTER_KEY_3 }}
+          VITE_OPENROUTER_KEY_4: ${{ secrets.OPENROUTER_KEY_4 }}
           VITE_MINERU_TOKEN: ${{ secrets.MINERU_TOKEN }}
         run: npm run build
       - name: Add 404 fallback (SPA routing)

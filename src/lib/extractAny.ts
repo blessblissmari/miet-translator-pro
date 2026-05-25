@@ -175,7 +175,11 @@ async function extractDocx(blob: Blob): Promise<ExtractedDoc> {
   // Use convertToMarkdown so that headings, lists, tables, and image refs survive
   // into the LLM input — the planner already speaks Markdown fluently.
   const result = await mammoth.convertToMarkdown({ arrayBuffer: await blob.arrayBuffer() });
-  const md = (result.value || "").trim();
+  let md = (result.value || "").trim();
+
+  // Strip stale MS Word local image references (file://, clip_image*.gif) — these
+  // confuse the translator.
+  md = md.replace(/file:\/\/[^"\n]+/g, "").replace(/clip_image\d+\.gif/g, "");
 
   // Block-aware chunking: never splits a $$math$$ block, table, code fence, or list.
   const { chunkMarkdown } = await import("./markdownChunk");

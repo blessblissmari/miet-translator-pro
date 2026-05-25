@@ -9,20 +9,19 @@ import type { OpenRouterModel } from "./types";
 const BUILTIN_KEYS: string[] = [
   import.meta.env.VITE_OPENROUTER_KEY_1 as string | undefined,
   import.meta.env.VITE_OPENROUTER_KEY_2 as string | undefined,
+  import.meta.env.VITE_OPENROUTER_KEY_3 as string | undefined,
+  import.meta.env.VITE_OPENROUTER_KEY_4 as string | undefined,
 ].filter((k): k is string => typeof k === "string" && k.length > 20);
 
 export const HAS_BUILTIN_KEYS = BUILTIN_KEYS.length > 0;
 export const DEFAULT_API_KEY = BUILTIN_KEYS[0] ?? "";
 
-// Round-robin index so successive calls without a user key alternate between
-// the two built-in pools to spread free-tier rate limits.
-let rrIndex = 0;
+import { pickBuiltinKey, markKeyUnhealthy } from "./openrouter-keys";
+export { markKeyUnhealthy };
+
+/** Pick the next usable key (delegates to keys.ts). */
 export function pickKey(userKey: string | undefined | null): string {
-  if (userKey && userKey.trim().length > 20) return userKey.trim();
-  if (BUILTIN_KEYS.length === 0) return "";
-  const k = BUILTIN_KEYS[rrIndex % BUILTIN_KEYS.length];
-  rrIndex++;
-  return k;
+  return pickBuiltinKey(BUILTIN_KEYS, userKey);
 }
 
 // Per-tab cache of models that returned 429 recently. We skip them for a cool-down
@@ -175,16 +174,17 @@ async function chatOnce(opts: ChatOptions): Promise<string> {
   let lastErr: unknown = new Error("no attempts made");
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
+      const currentKey = pickKey(opts.apiKey);
       const res = await fetch(ENDPOINT, {
         method: "POST",
+        signal: opts.signal,
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${pickKey(opts.apiKey)}`,
+          Authorization: `Bearer ${currentKey}`,
           "HTTP-Referer": typeof window !== "undefined" ? window.location.origin : "",
           "X-Title": "MIET Translator",
         },
         body: JSON.stringify(body),
-        signal: opts.signal,
       });
 
       // Read body once, regardless of status, so we always have something to surface.
@@ -198,7 +198,14 @@ async function chatOnce(opts: ChatOptions): Promise<string> {
         if (fatal) throw err;
         // Retryable (429 / 5xx). Honor Retry-After when present (seconds or HTTP-date).
         lastErr = err;
-        if (err.status === 429) markRateLimited(opts.model);
+        if (err.status === 429) {
+          markRateLimited(opts.model);
+          markKeyUnhealthy(currentKey, 5 * 60_000);
+        }
+        if (err.status === 402) {
+          // Insufficient credit — back off this key for 12h.
+          markKeyUnhealthy(currentKey, 12 * 60 * 60_000);
+        }
         const ra = parseRetryAfter(res.headers.get("retry-after"));
         const fallback = Math.min(60_000, 2000 * Math.pow(2, attempt));
         const wait = ra ?? fallback;
