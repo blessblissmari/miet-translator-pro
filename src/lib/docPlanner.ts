@@ -89,12 +89,8 @@ async function translateDocPage(
   glossary?: Glossary,
 ): Promise<DocBlock[]> {
   const isHandwritten = page.text.replace(/\s+/g, "").length < 30;
-
-  if (isHandwritten && !opts.visionCapable) {
-    throw new Error(
-      `Страница ${page.index + 1} без текстового слоя (рукопись/скан). Переключи модель на vision-капабельную (Gemma 3 27B / 12B) в Настройках.`,
-    );
-  }
+  const VISION_FALLBACK = "nvidia/nemotron-nano-12b-v2-vl:free";
+  const modelOverride = isHandwritten && !opts.visionCapable ? VISION_FALLBACK : undefined;
 
   const sysPrompt =
     (isHandwritten
@@ -143,7 +139,7 @@ async function translateDocPage(
 
   const out = await chat({
     apiKey: opts.apiKey,
-    model: opts.model,
+    model: modelOverride || opts.model,
     temperature: 0.2,
     maxTokens: 4096,
     signal: opts.signal,

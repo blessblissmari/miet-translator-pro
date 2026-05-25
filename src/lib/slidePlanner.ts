@@ -99,11 +99,8 @@ async function planSlideRobust(
       : null;
 
   const isHandwritten = page.text.replace(/\s+/g, "").length < 30;
-  if (isHandwritten && !opts.visionCapable) {
-    throw new Error(
-      `Слайд ${page.index + 1} без текста (скан/рукопись). Переключи модель на vision (Gemma 3 27B/12B).`,
-    );
-  }
+  const VISION_FALLBACK = "nvidia/nemotron-nano-12b-v2-vl:free";
+  const modelOverride = isHandwritten && !opts.visionCapable ? VISION_FALLBACK : undefined;
   if (isHandwritten) {
     opts.onLog?.(`Слайд ${page.index + 1}: режим vision-OCR`);
     const visionUrl = await downsampleDataUrl(page.imageDataUrl, {
@@ -111,7 +108,7 @@ async function planSlideRobust(
     });
     const out = await chat({
       apiKey: opts.apiKey,
-      model: opts.model,
+      model: modelOverride || opts.model,
       temperature: 0.2,
       maxTokens: 1024,
       signal: opts.signal,
@@ -154,7 +151,7 @@ async function planSlideRobust(
     }
     const out = await chat({
       apiKey: opts.apiKey,
-      model: opts.model,
+      model: modelOverride || opts.model,
       temperature: 0.2,
       maxTokens: 1024,
       responseJson: true,
@@ -209,7 +206,7 @@ async function planSlideRobust(
     );
     const plain = await chat({
       apiKey: opts.apiKey,
-      model: opts.model,
+      model: modelOverride || opts.model,
       temperature: 0.2,
       maxTokens: 1024,
       signal: opts.signal,
