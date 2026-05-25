@@ -22,7 +22,9 @@ import { chunkMarkdown } from "./markdownChunk";
 export const DEFAULT_MINERU_TOKEN: string = (import.meta.env.VITE_MINERU_TOKEN || "") as string;
 export const HAS_BUILTIN_MINERU = DEFAULT_MINERU_TOKEN.length > 0;
 
-const API_BASE = "https://mineru.net/api/v4";
+export const RAW_API_BASE = "https://mineru.net/api/v4";
+// MinerU's API has no CORS headers. R
+const API_BASE = "https://corsproxy.io/?https://mineru.net/api/v4";
 const POLL_INTERVAL_MS = 3000;
 const MAX_POLL_ATTEMPTS = 200; // ~10 minutes max wait
 

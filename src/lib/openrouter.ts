@@ -36,7 +36,7 @@ export const FREE_MODELS: OpenRouterModel[] = [
   { id: "z-ai/glm-4.5-air:free",                                label: "GLM 4.5 Air — только текст, стабильна",                       vision: false, context: 131072 },
 ];
 
-export const DEFAULT_MODEL = FREE_MODELS[0].id;
+export const DEFAULT_MODEL = "openai/gpt-oss-120b:free";
 
 export interface ChatMessage {
   role: "system" | "user" | "assistant";
@@ -96,15 +96,16 @@ function describeError(e: unknown): string {
  *  Pick fallbacks of the matching capability tier. */
 function fallbackChain(primary: string, hasImage: boolean): string[] {
   const chain: string[] = [primary];
+  const push = (id: string) => { if (!chain.includes(id)) chain.push(id); };
   if (hasImage) {
     // Need vision-capable models
-    if (!chain.includes("google/gemma-4-26b-a4b-it:free")) chain.push("google/gemma-4-26b-a4b-it:free");
-    if (!chain.includes("google/gemma-4-31b-it:free")) chain.push("google/gemma-4-31b-it:free");
-    if (!chain.includes("nvidia/nemotron-nano-12b-v2-vl:free")) chain.push("nvidia/nemotron-nano-12b-v2-vl:free");
+    push("google/gemma-4-26b-a4b-it:free");
+    push("google/gemma-4-31b-it:free");
+    push("nvidia/nemotron-nano-12b-v2-vl:free");
   } else {
-    if (!chain.includes("openai/gpt-oss-120b:free")) chain.push("openai/gpt-oss-120b:free");
-    if (!chain.includes("z-ai/glm-4.5-air:free")) chain.push("z-ai/glm-4.5-air:free");
-    if (!chain.includes("google/gemma-4-26b-a4b-it:free")) chain.push("google/gemma-4-26b-a4b-it:free");
+    push("openai/gpt-oss-120b:free");
+    push("z-ai/glm-4.5-air:free");
+    push("google/gemma-4-26b-a4b-it:free");
   }
   return chain;
 }
