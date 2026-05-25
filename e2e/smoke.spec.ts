@@ -11,9 +11,9 @@ test.describe("MIET Translator Pro — smoke", () => {
   test("settings panel is reachable and key field is rendered", async ({ page }) => {
     await page.goto("/");
     // "MiMo (Xiaomi) API key" label is in the SettingsPanel.
-    await expect(page.getByText(/MiMo (Xiaomi) API key/i)).toBeVisible();
-    // sk-or-v1 placeholder hints that the input is present.
-    await expect(page.getByPlaceholder(/sk-or-v1/i)).toBeVisible();
+    await expect(page.getByText(/MiMo \(Xiaomi\) API key/i)).toBeVisible();
+    // mimo- placeholder hints that the input is present.
+    await expect(page.getByPlaceholder(/mimo-/i)).toBeVisible();
   });
 
   test("MinerU parser toggle is rendered", async ({ page }) => {
