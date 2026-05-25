@@ -12,6 +12,7 @@ import { extractPdf } from "./lib/extractPdf.mjs";
 import { chat, mapWithConcurrency, stripCodeFences } from "./lib/openrouter.mjs";
 import { dspGlossaryPrompt, applyGlossaryPost } from "./lib/glossary.mjs";
 import { sanitizeLatexMath } from "./lib/mathSanitize.mjs";
+import { extractRasterImages } from "./lib/extractImages.mjs";
 
 const apiKey = process.env.OPENROUTER_API_KEY_ONE;
 if (!apiKey) { console.error("OPENROUTER_API_KEY_ONE not set"); process.exit(1); }
@@ -66,7 +67,7 @@ async function translatePage(page) {
   return cleaned;
 }
 
-function runPandoc(mdPath, outPath) {
+function runPandoc(mdPath, outPath, resourcePath) {
   return new Promise((resolve, reject) => {
     const args = [
       mdPath,
@@ -75,6 +76,7 @@ function runPandoc(mdPath, outPath) {
       "--to", "docx",
       "--standalone",
     ];
+    if (resourcePath) args.push("--resource-path", resourcePath);
     const p = spawn("pandoc", args);
     let stderr = "";
     p.stderr.on("data", d => stderr += d);
@@ -96,6 +98,10 @@ for (const pdfPath of inputs) {
   const base = path.basename(pdfPath, ".pdf");
   console.log(`\n=== ${base} ===`);
   try {
+    const figDir = path.join(outDir, "figures", base);
+    const images = await extractRasterImages(pdfPath, figDir);
+    const totalImages = Object.values(images).reduce((a, b) => a + b.length, 0);
+    if (totalImages) console.log(`  extracted ${totalImages} embedded figures`);
     const pages = await extractPdf(pdfPath);
     console.log(`  pages=${pages.length}`);
     let done = 0;
@@ -112,16 +118,20 @@ for (const pdfPath of inputs) {
       }
     });
     console.log();
-    // Concatenate with explicit page separators
+    // Concatenate with explicit page separators + per-page figures
     let md = `# ${base}\n\n`;
     sections.forEach((s, i) => {
       md += s.trim() + "\n\n";
+      const figs = images[i + 1] || [];
+      for (const f of figs) {
+        md += `\n![*Рисунок (стр. ${i + 1})*](${f.path})\n\n`;
+      }
     });
     md = sanitizeLatexMath(md);
     const mdPath = path.join(mdDir, `${base}_ru.md`);
     await writeFile(mdPath, md, "utf8");
     const docxPath = path.join(outDir, `${base}_ru.docx`);
-    await runPandoc(mdPath, docxPath);
+    await runPandoc(mdPath, docxPath, figDir);
     const stat = await readFile(docxPath);
     const ms = Date.now() - t0;
     console.log(`  ✓ ${docxPath}  (${(ms / 1000).toFixed(1)}s, ${stat.length} bytes)`);

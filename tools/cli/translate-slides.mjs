@@ -8,6 +8,8 @@ import path from "node:path";
 import { extractPdf, aspectKind } from "./lib/extractPdf.mjs";
 import { translateSlides } from "./lib/slidePlanner.mjs";
 import { buildPptx } from "./lib/buildPptx.mjs";
+import { extractRasterImages } from "./lib/extractImages.mjs";
+import { redrawAll } from "./lib/redrawFigure.mjs";
 
 const apiKey = process.env.OPENROUTER_API_KEY_ONE;
 if (!apiKey) { console.error("OPENROUTER_API_KEY_ONE not set"); process.exit(1); }
@@ -31,10 +33,33 @@ for (const pdfPath of inputs) {
     row.pages = pages.length;
     console.log(`  pages=${pages.length}  aspectKind=${aspectKind(pages)}`);
 
+    const figDir = path.join(outDir, "figures", base);
+    const images = await extractRasterImages(pdfPath, figDir);
+    const totalImgs = Object.values(images).reduce((a, b) => a + b.length, 0);
+    if (totalImgs) console.log(`  extracted ${totalImgs} embedded figures`);
+
+    let figs = images;
+    if (process.env.REDRAW === "1" && totalImgs) {
+      const redrawModel = process.env.REDRAW_MODEL || "google/gemma-4-31b-it:free";
+      process.stdout.write(`  redrawing ${totalImgs} figures with ${redrawModel}…`);
+      let dn = 0;
+      figs = await redrawAll({
+        apiKey,
+        model: redrawModel,
+        imagesByPage: images,
+        workDir: path.join(outDir, "figures-redrawn", base),
+        concurrency: 3,
+        onProgress: (d, t) => { dn = d; process.stdout.write(`\r  redrawing ${d}/${t} figures…`); },
+      });
+      const replaced = Object.values(figs).flat().filter(f => f.redrawn).length;
+      console.log(`\n  ✓ redrew ${replaced}/${totalImgs} figures (${totalImgs - replaced} kept original)`);
+    }
+
     const slides = await translateSlides({
       apiKey,
       model: MODEL,
       pages,
+      images: figs,
       concurrency: 5,
       onProgress: (d, t) => process.stdout.write(`\r  translated ${d}/${t}…`),
     });

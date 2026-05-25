@@ -5,7 +5,8 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const TEMPLATE_PATH = path.resolve(__dirname, "..", "template.pptx");
+const TEMPLATE_PATH = process.env.MIET_TEMPLATE
+  || path.resolve(__dirname, "..", "..", "..", "src", "assets", "template.pptx");
 
 const LAYOUT_INDEX = {
   "section-title": 1,
