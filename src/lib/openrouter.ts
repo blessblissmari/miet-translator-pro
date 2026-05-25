@@ -7,13 +7,13 @@ export const DEFAULT_API_KEY = "";
 
 export const FREE_MODELS: OpenRouterModel[] = [
   // Vision-capable: handles printed text, scans, and handwriting.
-  { id: "google/gemma-4-26b-a4b-it:free",        label: "Gemma 4 26B — vision (рекомендуется, академический русский)", vision: true,  context: 262144 },
-  { id: "nvidia/nemotron-nano-12b-v2-vl:free",   label: "Nemotron Nano 12B VL — vision (Nvidia, без рейт-лимитов Google)", vision: true, context: 128000 },
-  { id: "google/gemma-3-27b-it:free",            label: "Gemma 3 27B — vision (часто rate-limited)",                  vision: true,  context: 131072 },
-  { id: "google/gemma-3-12b-it:free",            label: "Gemma 3 12B — vision (быстрее, тот же лимит)",                vision: true,  context: 32768  },
+  { id: "google/gemma-4-26b-a4b-it:free",                       label: "Gemma 4 26B — vision (рекомендуется, академический русский)", vision: true,  context: 262144 },
+  { id: "google/gemma-4-31b-it:free",                           label: "Gemma 4 31B — vision (262k контекст)",                        vision: true,  context: 262144 },
+  { id: "nvidia/nemotron-nano-12b-v2-vl:free",                  label: "Nemotron Nano 12B VL — vision (резервная, без рейт-лимитов Google)", vision: true, context: 128000 },
+  { id: "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",   label: "Nemotron 3 Nano Omni 30B — vision + reasoning (медленнее)",   vision: true,  context: 256000 },
   // Text-only: faster + reliable for printed PDFs without need for image OCR.
-  { id: "openai/gpt-oss-120b:free",              label: "GPT-OSS 120B — только текст, очень стабильна",                vision: false, context: 131072 },
-  { id: "z-ai/glm-4.5-air:free",                 label: "GLM 4.5 Air — только текст, стабильна",                       vision: false, context: 131072 },
+  { id: "openai/gpt-oss-120b:free",                             label: "GPT-OSS 120B — только текст, очень стабильна",                vision: false, context: 131072 },
+  { id: "z-ai/glm-4.5-air:free",                                label: "GLM 4.5 Air — только текст, стабильна",                       vision: false, context: 131072 },
 ];
 
 export const DEFAULT_MODEL = FREE_MODELS[0].id;
@@ -79,8 +79,8 @@ function fallbackChain(primary: string, hasImage: boolean): string[] {
   if (hasImage) {
     // Need vision-capable models
     if (!chain.includes("google/gemma-4-26b-a4b-it:free")) chain.push("google/gemma-4-26b-a4b-it:free");
+    if (!chain.includes("google/gemma-4-31b-it:free")) chain.push("google/gemma-4-31b-it:free");
     if (!chain.includes("nvidia/nemotron-nano-12b-v2-vl:free")) chain.push("nvidia/nemotron-nano-12b-v2-vl:free");
-    if (!chain.includes("google/gemma-3-27b-it:free")) chain.push("google/gemma-3-27b-it:free");
   } else {
     if (!chain.includes("openai/gpt-oss-120b:free")) chain.push("openai/gpt-oss-120b:free");
     if (!chain.includes("z-ai/glm-4.5-air:free")) chain.push("z-ai/glm-4.5-air:free");

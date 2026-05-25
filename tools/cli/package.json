@@ -1,0 +1,10 @@
+{
+  "name": "miet-translate-runner",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "pdfjs-dist": "4.10.38",
+    "docx": "9.6.1",
+    "jszip": "3.10.1"
+  }
+}

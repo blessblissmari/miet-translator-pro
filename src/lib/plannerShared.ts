@@ -24,6 +24,28 @@ export function stripCodeFences(s: string): string {
   return m ? m[1] : t;
 }
 
+/**
+ * Normalize stray LaTeX math delimiters into the dollar-sign form that the
+ * downstream Markdown→DocBlock parser understands. Some models emit
+ * \( ... \) and \[ ... \] regardless of system-prompt instructions; without
+ * this step those fragments would be rendered as literal text including the
+ * backslashes in the final document.
+ *
+ * Conversions:
+ *   \[ ... \]   →  $$ ... $$  (display math, own paragraph)
+ *   \( ... \)   →  $ ... $    (inline math)
+ *
+ * The replacements run on the whole string. False positives in unrelated text
+ * are essentially impossible because `\[` / `\(` rarely appear outside math
+ * in academic content; if they ever do, they pass through DocBlock rendering
+ * fine as plain text containing dollar signs.
+ */
+export function normalizeMathDelims(text: string): string {
+  return text
+    .replace(/\\\[\s*([\s\S]*?)\s*\\\]/g, (_m, body) => `\n\n$$${body.trim()}$$\n\n`)
+    .replace(/\\\(\s*([\s\S]*?)\s*\\\)/g, (_m, body) => `$${body.trim()}$`);
+}
+
 /** Convert Markdown (with $...$ / $$...$$ math) into DocBlock[]. */
 export function parseMarkdownToBlocks(md: string): DocBlock[] {
   const lines = md.split(/\r?\n/);
