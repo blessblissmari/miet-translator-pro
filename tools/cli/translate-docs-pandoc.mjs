@@ -13,6 +13,7 @@ import { chat, mapWithConcurrency, stripCodeFences } from "./lib/openrouter.mjs"
 import { dspGlossaryPrompt, applyGlossaryPost } from "./lib/glossary.mjs";
 import { sanitizeLatexMath } from "./lib/mathSanitize.mjs";
 import { extractRasterImages } from "./lib/extractImages.mjs";
+import { redrawAll } from "./lib/redrawFigure.mjs";
 
 const apiKey = process.env.OPENROUTER_API_KEY_ONE;
 if (!apiKey) { console.error("OPENROUTER_API_KEY_ONE not set"); process.exit(1); }
@@ -100,8 +101,22 @@ for (const pdfPath of inputs) {
   try {
     const figDir = path.join(outDir, "figures", base);
     const images = await extractRasterImages(pdfPath, figDir);
-    const totalImages = Object.values(images).reduce((a, b) => a + b.length, 0);
-    if (totalImages) console.log(`  extracted ${totalImages} embedded figures`);
+    const totalImgs = Object.values(images).reduce((a, b) => a + b.length, 0);
+    if (totalImgs) console.log(`  extracted ${totalImgs} embedded figures`);
+
+    let imagesByPage = images;
+    if (process.env.REDRAW && totalImgs > 0) {
+      const redrawDir = path.join(outDir, "figures-redrawn", base);
+      console.log(`  redrawing ${totalImgs} figures…`);
+      imagesByPage = await redrawAll({
+        apiKey, imagesByPage: images, workDir: redrawDir,
+        onProgress: (d, t) => process.stderr.write(`\r  redrawing ${d}/${t}…`),
+      });
+      process.stderr.write("\n");
+      const redrawn = Object.values(imagesByPage).flat().filter(it => it.redrawn).length;
+      console.log(`  ✓ redrew ${redrawn}/${totalImgs} figures`);
+    }
+
     const pages = await extractPdf(pdfPath);
     console.log(`  pages=${pages.length}`);
     let done = 0;
@@ -122,7 +137,7 @@ for (const pdfPath of inputs) {
     let md = `# ${base}\n\n`;
     sections.forEach((s, i) => {
       md += s.trim() + "\n\n";
-      const figs = images[i + 1] || [];
+      const figs = imagesByPage[i + 1] || [];
       for (const f of figs) {
         md += `\n![*Рисунок (стр. ${i + 1})*](${f.path})\n\n`;
       }
