@@ -11,6 +11,9 @@ const BUILTIN_KEYS: string[] = [
   import.meta.env.VITE_OPENROUTER_KEY_2 as string | undefined,
   import.meta.env.VITE_OPENROUTER_KEY_3 as string | undefined,
   import.meta.env.VITE_OPENROUTER_KEY_4 as string | undefined,
+  import.meta.env.VITE_OPENROUTER_KEY_5 as string | undefined,
+  import.meta.env.VITE_OPENROUTER_KEY_6 as string | undefined,
+  import.meta.env.VITE_OPENROUTER_KEY_7 as string | undefined,
 ].filter((k): k is string => typeof k === "string" && k.length > 20);
 
 export const HAS_BUILTIN_KEYS = BUILTIN_KEYS.length > 0;

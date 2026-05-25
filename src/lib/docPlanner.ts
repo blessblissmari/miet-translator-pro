@@ -18,6 +18,7 @@ import {
   stripCodeFences,
   parseMarkdownToBlocks,
   normalizeMathDelims,
+  wrapOrphanLatex,
   TARGET_LANG,
   type PlannerOpts,
 } from "./plannerShared";
@@ -148,7 +149,7 @@ async function translateDocPage(
       { role: "user", content: userContent },
     ],
   });
-  const blocks = parseMarkdownToBlocks(normalizeMath(normalizeMathDelims(stripCodeFences(out))));
+  const blocks = parseMarkdownToBlocks(wrapOrphanLatex(normalizeMath(normalizeMathDelims(stripCodeFences(out)))));
   // Post-pass: substitute any remaining English DSP terms.
   return blocks.map((b) => {
     if (b.type === "para" || b.type === "h1" || b.type === "h2" || b.type === "h3") {

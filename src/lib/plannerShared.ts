@@ -46,6 +46,21 @@ export function normalizeMathDelims(text: string): string {
     .replace(/\\\(\s*([\s\S]*?)\s*\\\)/g, (_m, body) => `$${body.trim()}$`);
 }
 
+export function wrapOrphanLatex(text: string): string {
+  // Split on existing $$...$$ and $...$ blocks so we only touch the non-math parts.
+  const parts = text.split(/(\$\$[\s\S]*?\$\$|\$[^$\n]+?\$)/g);
+  for (let i = 0; i < parts.length; i += 2) {
+    let seg = parts[i];
+    // Wrap whole runs of LaTeX commands like \mathcal{H}\{x[n]\}.
+    seg = seg.replace(
+      /(\\[A-Za-z]+(?:\{[^{}\n]*\})*(?:\\\{[^{}\n]*\\\})*[A-Za-z0-9_^\[\]+\-*/=,. ]*)+/g,
+      (m) => /[\\{}]/.test(m) && m.trim().length > 1 ? `$${m.trim()}$` : m,
+    );
+    parts[i] = seg;
+  }
+  return parts.join("");
+}
+
 /** Convert Markdown (with $...$ / $$...$$ math) into DocBlock[]. */
 export function parseMarkdownToBlocks(md: string): DocBlock[] {
   const lines = md.split(/\r?\n/);
