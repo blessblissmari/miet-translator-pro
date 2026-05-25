@@ -160,6 +160,21 @@ export function SettingsPanel({
           />
           <strong>Использовать MinerU как парсер</strong>
         </label>
+
+        {/* Under-construction banner — MinerU pipeline known broken via VPN (Alibaba China S3) */}
+        <div style={{
+          margin: "12px 0",
+          padding: "8px",
+          border: "1px solid var(--border, #2a2a2a)",
+          borderRadius: 4,
+          backgroundColor: "var(--bg, #1e1e1e)",
+          color: "var(--text, #ccc)",
+          fontSize: 12,
+          textAlign: "center",
+          marginTop: 8,
+        }}>
+          ⚠️ В разработке
+        </div>
         <p className="muted small">
           MinerU — облачный парсер от OpenDataLab. Лучше встроенного pdf.js на
           сканированных PDF, формулах и многоколоночной вёрстке. Получи токен на{" "}
