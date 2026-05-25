@@ -18,6 +18,10 @@ import JSZip from "jszip";
 import type { ExtractedDoc, ExtractedPage } from "./types";
 import { chunkMarkdown } from "./markdownChunk";
 
+/** Built-in MinerU JWT, injected at build time via Vite env. */
+export const DEFAULT_MINERU_TOKEN: string = (import.meta.env.VITE_MINERU_TOKEN || "") as string;
+export const HAS_BUILTIN_MINERU = DEFAULT_MINERU_TOKEN.length > 0;
+
 const API_BASE = "https://mineru.net/api/v4";
 const POLL_INTERVAL_MS = 3000;
 const MAX_POLL_ATTEMPTS = 200; // ~10 minutes max wait

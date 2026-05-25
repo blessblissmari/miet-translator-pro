@@ -2,7 +2,9 @@ import { useState } from "react";
 import {
   FREE_MODELS,
   validateApiKey,
+  HAS_BUILTIN_KEYS,
 } from "../lib/openrouter";
+import { HAS_BUILTIN_MINERU } from "../lib/mineru";
 
 interface SettingsPanelProps {
   apiKey: string;
@@ -100,17 +102,21 @@ export function SettingsPanel({
           />
         </label>
         <p className="muted small">
-          {hasKey ? (
+          {overrideKey ? (
             "Ключ сохранён в браузере (localStorage). Ни на GitHub, ни куда-то ещё он не уходит — только прямо в openrouter.ai."
+          ) : HAS_BUILTIN_KEYS ? (
+            <>
+              ✓ Встроенные ключи OpenRouter доступны (с автоматической ротацией). Поле выше —
+              необязательное переопределение своим. Бесплатный ключ можно получить на{" "}
+              <a href="https://openrouter.ai/keys" target="_blank" rel="noreferrer">
+                openrouter.ai/keys
+              </a>
+              .
+            </>
           ) : (
             <>
-              Без ключа перевод работать не будет. Бесплатный ключ можно получить
-              на{" "}
-              <a
-                href="https://openrouter.ai/keys"
-                target="_blank"
-                rel="noreferrer"
-              >
+              Без ключа перевод работать не будет. Бесплатный ключ можно получить на{" "}
+              <a href="https://openrouter.ai/keys" target="_blank" rel="noreferrer">
                 openrouter.ai/keys
               </a>
               . Он хранится только в этом браузере.
@@ -246,6 +252,11 @@ export function SettingsPanel({
                     spellCheck={false}
                   />
                 </label>
+                {HAS_BUILTIN_MINERU && !mineruToken && (
+                  <p className="muted small">
+                    ✓ Встроенный токен доступен. Поле выше — переопределить своим (необязательно).
+                  </p>
+                )}
                 <label>
                   Модель MinerU{" "}
                   <select

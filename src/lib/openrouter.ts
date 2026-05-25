@@ -1,9 +1,29 @@
 import type { OpenRouterModel } from "./types";
 
-/** No API key is embedded. Users must provide their own OpenRouter key in the
- *  UI. The key is stored in localStorage of the user's browser only — never
- *  sent to the repo or to any server other than openrouter.ai. */
-export const DEFAULT_API_KEY = "";
+/**
+ * Built-in OpenRouter keys (injected at build time via Vite env vars).
+ * These ship in the deployed bundle so that teachers/students do not have to
+ * sign up at openrouter.ai. They are scoped free-tier keys; if depleted the
+ * UI falls back to whatever the user pasted manually.
+ */
+const BUILTIN_KEYS: string[] = [
+  import.meta.env.VITE_OPENROUTER_KEY_1 as string | undefined,
+  import.meta.env.VITE_OPENROUTER_KEY_2 as string | undefined,
+].filter((k): k is string => typeof k === "string" && k.length > 20);
+
+export const HAS_BUILTIN_KEYS = BUILTIN_KEYS.length > 0;
+export const DEFAULT_API_KEY = BUILTIN_KEYS[0] ?? "";
+
+// Round-robin index so successive calls without a user key alternate between
+// the two built-in pools to spread free-tier rate limits.
+let rrIndex = 0;
+export function pickKey(userKey: string | undefined | null): string {
+  if (userKey && userKey.trim().length > 20) return userKey.trim();
+  if (BUILTIN_KEYS.length === 0) return "";
+  const k = BUILTIN_KEYS[rrIndex % BUILTIN_KEYS.length];
+  rrIndex++;
+  return k;
+}
 
 export const FREE_MODELS: OpenRouterModel[] = [
   // Vision-capable: handles printed text, scans, and handwriting.
@@ -99,7 +119,9 @@ function messagesHaveImage(messages: ChatMessage[]): boolean {
 }
 
 export async function chat(opts: ChatOptions): Promise<string> {
-  if (!opts.apiKey) throw new Error("Нет ключа OpenRouter. Открой Настройки и вставь ключ с https://openrouter.ai/keys");
+  if (!opts.apiKey && !HAS_BUILTIN_KEYS) {
+    throw new Error("Нет ключа OpenRouter. Открой Настройки и вставь ключ с https://openrouter.ai/keys");
+  }
 
   const hasImage = messagesHaveImage(opts.messages);
   const chain = fallbackChain(opts.model, hasImage);
@@ -138,7 +160,7 @@ async function chatOnce(opts: ChatOptions): Promise<string> {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${opts.apiKey}`,
+          Authorization: `Bearer ${pickKey(opts.apiKey)}`,
           "HTTP-Referer": typeof window !== "undefined" ? window.location.origin : "",
           "X-Title": "MIET Translator",
         },

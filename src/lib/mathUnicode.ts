@@ -77,17 +77,14 @@ function replaceCommands(s: string): string {
 
 // Replace x^{...} and x_{...} where the body is convertible to Unicode.
 function replaceScripts(s: string): string {
-  // Display sigma-like: \sum_{a}^{b}  →  ∑(a≤·≤b)
-  s = s.replace(/(∑|∏|∫)\s*_\{([^{}]+)\}\s*\^\{([^{}]+)\}/g, (_m, op, lo, hi) => {
-    return `${op}(${lo}…${hi})`;
-  });
-  s = s.replace(/(∑|∏|∫)\s*\^\{([^{}]+)\}\s*_\{([^{}]+)\}/g, (_m, op, hi, lo) => {
-    return `${op}(${lo}…${hi})`;
-  });
-  // Generic ^{...}: try Unicode, else keep
+  // Display sigma-like: \sum_{a}^{b}  →  ∑(a…b). Match both mathematical and Greek Sigma/Pi.
+  const BIG = "[∑∏∫\\u03A3\\u03A0\\u222B]";
+  const reLoHi = new RegExp(`(${BIG})\\s*_\\{([^{}]+)\\}\\s*\\^\\{([^{}]+)\\}`, "g");
+  const reHiLo = new RegExp(`(${BIG})\\s*\\^\\{([^{}]+)\\}\\s*_\\{([^{}]+)\\}`, "g");
+  s = s.replace(reLoHi, (_m, op, lo, hi) => `${op}(${lo}…${hi})`);
+  s = s.replace(reHiLo, (_m, op, hi, lo) => `${op}(${lo}…${hi})`);
   s = s.replace(/\^\{([^{}]+)\}/g, (m, body) => toSuper(body) ?? m);
   s = s.replace(/_\{([^{}]+)\}/g, (m, body) => toSub(body) ?? m);
-  // Single-char: x^2  ->  x²
   s = s.replace(/\^([A-Za-z0-9+\-=()])/g, (m, ch) => SUP[ch] ?? m);
   s = s.replace(/_([A-Za-z0-9+\-=()])/g, (m, ch) => SUB[ch] ?? m);
   return s;

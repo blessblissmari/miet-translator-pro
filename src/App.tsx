@@ -5,6 +5,7 @@ import { planSlides, planDoc } from "./lib/planner";
 import { buildPptx } from "./lib/pptxBuild";
 import { buildDocx } from "./lib/docxBuild";
 import { FREE_MODELS, DEFAULT_MODEL, DEFAULT_API_KEY } from "./lib/openrouter";
+import { DEFAULT_MINERU_TOKEN } from "./lib/mineru";
 import { expandInputs, type IntakeFile } from "./lib/intake";
 import { extractAny, suggestKind } from "./lib/extractAny";
 import { SlidesPreview, DocPreview } from "./components/Preview";
@@ -34,7 +35,8 @@ export default function App() {
   //   - "cloud": uses mineru.net's API, requires a token
   const [mineruEnabled, setMineruEnabled] = useLocalStorage<boolean>("mineru_enabled", false);
   const [mineruMode, setMineruMode] = useLocalStorage<"cloud" | "local">("mineru_mode", "local");
-  const [mineruToken, setMineruToken] = useLocalStorage<string>("mineru_token", "");
+  const [mineruTokenOverride, setMineruToken] = useLocalStorage<string>("mineru_token", "");
+  const mineruToken = mineruTokenOverride.trim() || DEFAULT_MINERU_TOKEN;
   const [mineruModelVersion, setMineruModelVersion] = useLocalStorage<
     "pipeline" | "vlm" | "auto"
   >("mineru_model_version", "vlm");
@@ -404,7 +406,7 @@ export default function App() {
             onModelChange={setModel}
             mineruEnabled={mineruEnabled}
             mineruMode={mineruMode}
-            mineruToken={mineruToken}
+            mineruToken={mineruTokenOverride}
             mineruModelVersion={mineruModelVersion}
             mineruLocalEndpoint={mineruLocalEndpoint}
             mineruLocalBackend={mineruLocalBackend}
