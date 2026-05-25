@@ -9,16 +9,16 @@ import { writeFile, mkdir, readFile } from "node:fs/promises";
 import { spawn } from "node:child_process";
 import path from "node:path";
 import { extractPdf } from "./lib/extractPdf.mjs";
-import { chat, mapWithConcurrency, stripCodeFences } from "./lib/openrouter.mjs";
+import { chat, mapWithConcurrency, stripCodeFences } from "./lib/mimo.mjs";
 import { dspGlossaryPrompt, applyGlossaryPost } from "./lib/glossary.mjs";
 import { sanitizeLatexMath } from "./lib/mathSanitize.mjs";
 import { polishRu } from "./lib/ruPolish.mjs";
 import { extractRasterImages } from "./lib/extractImages.mjs";
 import { redrawAll } from "./lib/redrawFigure.mjs";
 
-const apiKey = process.env.OPENROUTER_API_KEY_ONE;
-if (!apiKey) { console.error("OPENROUTER_API_KEY_ONE not set"); process.exit(1); }
-const MODEL = process.env.MODEL || "openai/gpt-oss-120b:free";
+const apiKey = process.env.MIMO_API_KEY;
+if (!apiKey) { console.error("MIMO_API_KEY not set"); process.exit(1); }
+const MODEL = process.env.MODEL || "mimo-v2.5-pro";
 
 const TARGET_LANG = "Russian";
 

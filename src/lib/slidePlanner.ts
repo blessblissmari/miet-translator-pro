@@ -1,7 +1,7 @@
 /**
  * Slide planning — translates extracted pages into SlidePlan objects for PPTX building.
  */
-import { chat, parseJsonLoose } from "./openrouter";
+import { chat, parseJsonLoose } from "./mimo";
 import { normalizeMath } from "./mathNormalize";
 import { downsampleDataUrl } from "./imageOps";
 import { mapWithConcurrency } from "./concurrency";

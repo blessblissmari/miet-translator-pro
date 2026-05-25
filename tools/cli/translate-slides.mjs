@@ -2,7 +2,7 @@
 //
 // Usage: node translate-slides.mjs <pdf...>
 //
-// Env: OPENROUTER_API_KEY_ONE
+// Env: MIMO_API_KEY
 import { writeFile, mkdir } from "node:fs/promises";
 import path from "node:path";
 import { extractPdf, aspectKind } from "./lib/extractPdf.mjs";
@@ -12,9 +12,9 @@ import { extractRasterImages } from "./lib/extractImages.mjs";
 import { redrawAll } from "./lib/redrawFigure.mjs";
 import { cropFiguresForPages } from "./lib/figureCrop.mjs";
 
-const apiKey = process.env.OPENROUTER_API_KEY_ONE;
-if (!apiKey) { console.error("OPENROUTER_API_KEY_ONE not set"); process.exit(1); }
-const MODEL = process.env.MODEL || "openai/gpt-oss-120b:free";
+const apiKey = process.env.MIMO_API_KEY;
+if (!apiKey) { console.error("MIMO_API_KEY not set"); process.exit(1); }
+const MODEL = process.env.MODEL || "mimo-v2.5-pro";
 
 const inputs = process.argv.slice(2);
 if (!inputs.length) { console.error("usage: node translate-slides.mjs <pdf...>"); process.exit(1); }
@@ -41,7 +41,7 @@ for (const pdfPath of inputs) {
 
     let figs = images;
     if (process.env.REDRAW === "1" && totalImgs) {
-      const redrawModel = process.env.REDRAW_MODEL || "google/gemma-4-31b-it:free";
+      const redrawModel = process.env.REDRAW_MODEL || "mimo-v2.5";
       process.stdout.write(`  redrawing ${totalImgs} figures with ${redrawModel}…`);
       let dn = 0;
       figs = await redrawAll({

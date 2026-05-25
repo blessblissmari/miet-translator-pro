@@ -1,7 +1,7 @@
 /**
  * Document planning — translates extracted pages into DocPlan for DOCX building.
  */
-import { chat } from "./openrouter";
+import { chat } from "./mimo";
 import { normalizeMath } from "./mathNormalize";
 import { downsampleDataUrl } from "./imageOps";
 import { mapWithConcurrency } from "./concurrency";

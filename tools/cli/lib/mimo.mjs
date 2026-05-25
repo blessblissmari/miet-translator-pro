@@ -1,27 +1,26 @@
-// Minimal OpenRouter client with retry + rate-limit backoff.
-const ENDPOINT = "https://openrouter.ai/api/v1/chat/completions";
+// Minimal MiMo (Xiaomi) client with retry + rate-limit backoff.
+// Uses Xiaomi's OpenAI-compatible Singapore endpoint, reachable from RU
+// without a VPN.
+const ENDPOINT = "https://token-plan-sgp.xiaomimimo.com/v1/chat/completions";
 
 export async function chat({ apiKey, model, messages, maxTokens = 4096, temperature = 0.2, signal, retries = 5 }) {
-  const altKey = process.env.OPENROUTER_API_KEY_TWO;
+  const altKey = process.env.MIMO_API_KEY_2;
   const keys = altKey && altKey !== apiKey ? [apiKey, altKey] : [apiKey];
   let lastErr;
   for (let attempt = 0; attempt < retries; attempt++) {
     try {
-      const isReasoningModel = /gpt-oss|reasoning|thinking|nemotron-3-nano-omni/i.test(model);
       const body = {
         model,
         messages,
         temperature,
         max_tokens: maxTokens,
-        ...(isReasoningModel ? { reasoning: { exclude: true } } : {}),
+        stream: false,
       };
       const r = await fetch(ENDPOINT, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${keys[attempt % keys.length]}`,
           "Content-Type": "application/json",
-          "HTTP-Referer": "https://github.com/blessblissmari/miet-translator-pro",
-          "X-Title": "MIET Translator Pro CLI",
         },
         body: JSON.stringify(body),
         signal,
@@ -43,11 +42,6 @@ export async function chat({ apiKey, model, messages, maxTokens = 4096, temperat
       const c = j.choices?.[0]?.message?.content;
       if (!c) {
         const refusal = j.choices?.[0]?.message?.refusal;
-        const reasoning = j.choices?.[0]?.message?.reasoning;
-        if (reasoning && !c) {
-          // reasoning model truncated - try again with more tokens
-          throw new Error(`empty content, reasoning model: ${reasoning.slice(0,120)}`);
-        }
         throw new Error(`empty response: ${refusal || JSON.stringify(j).slice(0, 200)}`);
       }
       return c;
@@ -70,10 +64,8 @@ export function stripCodeFences(s) {
 }
 
 export function parseJsonLoose(text) {
-  // Try direct
   const cleaned = stripCodeFences(text);
   try { return JSON.parse(cleaned); } catch {}
-  // Find first { and balanced match
   const start = cleaned.indexOf("{");
   if (start < 0) throw new Error("no JSON found: " + cleaned.slice(0, 120));
   let depth = 0;

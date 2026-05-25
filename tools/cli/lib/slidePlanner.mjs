@@ -1,4 +1,4 @@
-import { chat, mapWithConcurrency } from "./openrouter.mjs";
+import { chat, mapWithConcurrency } from "./mimo.mjs";
 import { dspGlossaryPrompt, applyGlossaryPost } from "./glossary.mjs";
 import { latexToUnicode } from "./mathUnicode.mjs";
 import { readFile } from "node:fs/promises";

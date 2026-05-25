@@ -10,8 +10,8 @@ test.describe("MIET Translator Pro — smoke", () => {
 
   test("settings panel is reachable and key field is rendered", async ({ page }) => {
     await page.goto("/");
-    // "OpenRouter API key" label is in the SettingsPanel.
-    await expect(page.getByText(/OpenRouter API key/i)).toBeVisible();
+    // "MiMo (Xiaomi) API key" label is in the SettingsPanel.
+    await expect(page.getByText(/MiMo (Xiaomi) API key/i)).toBeVisible();
     // sk-or-v1 placeholder hints that the input is present.
     await expect(page.getByPlaceholder(/sk-or-v1/i)).toBeVisible();
   });

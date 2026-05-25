@@ -231,6 +231,37 @@ export async function pollBatch(
 }
 
 /**
+ * Fetch a URL through a CORS proxy. MinerU's result zips are hosted on
+ * Alibaba Cloud OSS in China — they're sometimes unreachable directly from
+ * browsers in RU (no CORS headers, geo-flaky). We try the proxy first and
+ * fall back to direct if it fails.
+ */
+async function proxiedFetch(url: string, init?: RequestInit): Promise<Response> {
+  const proxies = [
+    `https://corsproxy.io/?${encodeURIComponent(url)}`,
+    `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+  ];
+  let lastErr: unknown;
+  for (const p of proxies) {
+    try {
+      const r = await fetch(p, init);
+      if (r.ok) return r;
+      lastErr = new Error(`HTTP ${r.status}`);
+    } catch (e) {
+      lastErr = e;
+    }
+  }
+  // Last resort: try direct (will fail CORS in most browsers but ok in Node).
+  try {
+    return await fetch(url, init);
+  } catch {
+    throw lastErr instanceof Error
+      ? lastErr
+      : new Error("all proxied fetch attempts failed");
+  }
+}
+
+/**
  * Fetch a MinerU result zip and convert it into an `ExtractedDoc`.
  * Zip contents (per MinerU spec):
  *   full.md          — full document markdown
@@ -241,7 +272,7 @@ export async function fetchResultZip(
   zipUrl: string,
   opts: MineruOptions,
 ): Promise<ExtractedDoc> {
-  const r = await fetch(zipUrl, { signal: opts.signal });
+  const r = await proxiedFetch(zipUrl, { signal: opts.signal });
   if (!r.ok) throw new Error(`MinerU zip fetch failed: HTTP ${r.status}`);
   const buf = await r.arrayBuffer();
   return mineruZipToExtractedDoc(buf);

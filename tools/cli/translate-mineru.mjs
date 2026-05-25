@@ -9,19 +9,19 @@ import { writeFile, mkdir } from "node:fs/promises";
 import path from "node:path";
 import { spawn } from "node:child_process";
 import { mineruExtractMarkdown } from "./lib/mineru.mjs";
-import { chat, mapWithConcurrency } from "./lib/openrouter.mjs";
+import { chat, mapWithConcurrency } from "./lib/mimo.mjs";
 import { dspGlossaryPrompt, applyGlossaryPost } from "./lib/glossary.mjs";
 import { sanitizeLatexMath } from "./lib/mathSanitize.mjs";
 import { polishRu } from "./lib/ruPolish.mjs";
 
-const apiKey = process.env.OPENROUTER_API_KEY_ONE;
+const apiKey = process.env.MIMO_API_KEY;
 const mineruToken = process.env.MINERU_TOKEN;
 if (!apiKey || !mineruToken) {
-  console.error("Need OPENROUTER_API_KEY_ONE and MINERU_TOKEN");
+  console.error("Need MIMO_API_KEY and MINERU_TOKEN");
   process.exit(1);
 }
 const TARGET = "Russian";
-const MODEL = process.env.MODEL || "openai/gpt-oss-120b:free";
+const MODEL = process.env.MODEL || "mimo-v2.5-pro";
 const PROMPT = `Ты — академический переводчик для российского университета (МИЭТ — ЦОС).
 
 ВХОД: фрагмент английского Markdown-перевода из MinerU (OCR/парсер PDF). Может содержать $..$ inline-math и $$..$$ display-math, заголовки, списки, таблицы.

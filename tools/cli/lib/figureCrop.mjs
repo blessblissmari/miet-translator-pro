@@ -7,7 +7,7 @@
 import { spawn } from "node:child_process";
 import { readFile, writeFile, mkdir, stat } from "node:fs/promises";
 import path from "node:path";
-import { chat } from "./openrouter.mjs";
+import { chat } from "./mimo.mjs";
 
 const PROMPT = `Ты — ассистент по разметке слайдов.
 ВХОД: скриншот слайда учебной презентации (английский, тема ЦОС).
@@ -65,9 +65,9 @@ function parseJsonLoose(t) {
 }
 
 const MODELS = [
-  "google/gemma-4-31b-it:free",
-  "google/gemma-4-26b-a4b-it:free",
-  "nvidia/nemotron-nano-12b-v2-vl:free",
+  "mimo-v2.5",
+  "mimo-v2.5",
+  "mimo-v2-omni",
 ];
 
 export async function cropFigureFromPage({ apiKey, pdfPath, pageNum, workDir, models = MODELS, dpi = 200 }) {

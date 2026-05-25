@@ -4,14 +4,14 @@
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import path from "node:path";
 import { spawn } from "node:child_process";
-import { chat, mapWithConcurrency } from "./lib/openrouter.mjs";
+import { chat, mapWithConcurrency } from "./lib/mimo.mjs";
 import { dspGlossaryPrompt, applyGlossaryPost } from "./lib/glossary.mjs";
 import { sanitizeLatexMath } from "./lib/mathSanitize.mjs";
 import { polishRu } from "./lib/ruPolish.mjs";
 
-const apiKey = process.env.OPENROUTER_API_KEY_ONE;
-if (!apiKey) { console.error("Need OPENROUTER_API_KEY_ONE"); process.exit(1); }
-const MODEL = process.env.MODEL || "openai/gpt-oss-120b:free";
+const apiKey = process.env.MIMO_API_KEY;
+if (!apiKey) { console.error("Need MIMO_API_KEY"); process.exit(1); }
+const MODEL = process.env.MODEL || "mimo-v2.5-pro";
 
 const PROMPT = `Ты — академический переводчик для российского университета (МИЭТ — ЦОС).
 

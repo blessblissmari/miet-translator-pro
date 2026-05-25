@@ -2,19 +2,19 @@
 //
 // Usage: node translate-docs.mjs <pdf...>
 //
-// Env: OPENROUTER_API_KEY_ONE
+// Env: MIMO_API_KEY
 import { writeFile, mkdir } from "node:fs/promises";
 import path from "node:path";
 import { extractPdf, aspectKind } from "./lib/extractPdf.mjs";
 import { translateDocPages, parseMarkdownToBlocks } from "./lib/docPlanner.mjs";
 import { buildDocxFromBlocks } from "./lib/buildDocx.mjs";
 
-const apiKey = process.env.OPENROUTER_API_KEY_ONE;
+const apiKey = process.env.MIMO_API_KEY;
 if (!apiKey) {
-  console.error("OPENROUTER_API_KEY_ONE not set");
+  console.error("MIMO_API_KEY not set");
   process.exit(1);
 }
-const MODEL = process.env.MODEL || "openai/gpt-oss-120b:free";
+const MODEL = process.env.MODEL || "mimo-v2.5-pro";
 
 const outDir = process.env.OUT_DIR || "./outputs";
 await mkdir(outDir, { recursive: true });

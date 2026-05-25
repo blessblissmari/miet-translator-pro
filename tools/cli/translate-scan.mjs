@@ -3,13 +3,13 @@
 import { writeFile, mkdir, readFile, rm } from "node:fs/promises";
 import { spawn } from "node:child_process";
 import path from "node:path";
-import { chat, mapWithConcurrency, stripCodeFences } from "./lib/openrouter.mjs";
+import { chat, mapWithConcurrency, stripCodeFences } from "./lib/mimo.mjs";
 import { dspGlossaryPrompt, applyGlossaryPost } from "./lib/glossary.mjs";
 import { sanitizeLatexMath } from "./lib/mathSanitize.mjs";
 
-const apiKey = process.env.OPENROUTER_API_KEY_ONE;
-if (!apiKey) { console.error("OPENROUTER_API_KEY_ONE not set"); process.exit(1); }
-const MODEL = process.env.MODEL || "google/gemma-4-26b-a4b-it:free";
+const apiKey = process.env.MIMO_API_KEY;
+if (!apiKey) { console.error("MIMO_API_KEY not set"); process.exit(1); }
+const MODEL = process.env.MODEL || "mimo-v2.5-pro";
 
 const PROMPT = `Ты — академический переводчик и OCR-ассистент для российского университета (МИЭТ — Цифровая обработка сигналов).
 

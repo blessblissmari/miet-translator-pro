@@ -1,7 +1,7 @@
 // Per-key health tracker. Stored in localStorage so we don't keep hammering
 // a key that returned 429 / 402 a few seconds ago. Survives reloads.
 export type KeyState = { blacklistUntil?: number; markedAt?: number };
-const KEY_STATE_STORAGE = "openrouter_key_state_v1";
+const KEY_STATE_STORAGE = "mimo_key_state_v1";
 
 function loadKeyState(): Record<string, KeyState> {
   try {
@@ -41,7 +41,7 @@ let rrIndex = 0;
  *  healthy built-in keys; falls back to the full set if all are blacklisted
  *  (so the user still gets a clear API error rather than a silent failure). */
 export function pickBuiltinKey(builtinKeys: string[], userKey: string | undefined | null): string {
-  if (userKey && userKey.trim().length > 20) return userKey.trim();
+  if (userKey && userKey.trim().length > 10) return userKey.trim();
   if (builtinKeys.length === 0) return "";
   const healthy = builtinKeys.filter(isKeyHealthy);
   const pool = healthy.length > 0 ? healthy : builtinKeys;

@@ -110,7 +110,7 @@ export function QueueSidebar({
           className="primary"
           onClick={onRunAll}
           disabled={running || totalQueued === 0 || !hasKey}
-          title={!hasKey ? "Добавь OpenRouter ключ в Настройках" : ""}
+          title={!hasKey ? "Добавь ключ MiMo в Настройках" : ""}
         >
           {running ? "Обработка…" : `Запустить (${totalQueued})`}
         </button>

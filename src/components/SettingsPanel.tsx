@@ -3,7 +3,7 @@ import {
   FREE_MODELS,
   validateApiKey,
   HAS_BUILTIN_KEYS,
-} from "../lib/openrouter";
+} from "../lib/mimo";
 import { HAS_BUILTIN_MINERU } from "../lib/mineru";
 
 interface SettingsPanelProps {
@@ -91,35 +91,37 @@ export function SettingsPanel({
     <section className="settings">
       <div className={`key-row ${hasKey ? "key-ok" : "key-missing"}`}>
         <label>
-          <strong>OpenRouter API key</strong>
+          <strong>MiMo (Xiaomi) API key</strong>
           <input
             type="password"
             value={overrideKey}
             onChange={(e) => onKeyChange(e.target.value)}
-            placeholder="sk-or-v1-…"
+            placeholder="mimo-…"
             autoComplete="off"
             spellCheck={false}
           />
         </label>
         <p className="muted small">
           {overrideKey ? (
-            "Ключ сохранён в браузере (localStorage). Ни на GitHub, ни куда-то ещё он не уходит — только прямо в openrouter.ai."
+            "Ключ сохранён в браузере (localStorage). На GitHub или куда-то ещё он не уходит — только в Xiaomi MiMo (Сингапур), который доступен из РФ без VPN."
           ) : HAS_BUILTIN_KEYS ? (
             <>
-              ✓ Встроенные ключи OpenRouter доступны (с автоматической ротацией). Поле выше —
-              необязательное переопределение своим. Бесплатный ключ можно получить на{" "}
-              <a href="https://openrouter.ai/keys" target="_blank" rel="noreferrer">
-                openrouter.ai/keys
+              ✓ Встроенные ключи MiMo доступны (с автоматической ротацией, 200M
+              кредитов на аккаунт). Поле выше — необязательное переопределение
+              своим ключом. Получить свой можно на{" "}
+              <a href="https://xiaomimimo.com" target="_blank" rel="noreferrer">
+                xiaomimimo.com
               </a>
               .
             </>
           ) : (
             <>
-              Без ключа перевод работать не будет. Бесплатный ключ можно получить на{" "}
-              <a href="https://openrouter.ai/keys" target="_blank" rel="noreferrer">
-                openrouter.ai/keys
+              Без ключа перевод работать не будет. Получить ключ MiMo можно на{" "}
+              <a href="https://xiaomimimo.com" target="_blank" rel="noreferrer">
+                xiaomimimo.com
               </a>
-              . Он хранится только в этом браузере.
+              . Эндпоинт — Сингапур, доступен из РФ без VPN. Ключ хранится только
+              в этом браузере.
             </>
           )}
         </p>
@@ -161,20 +163,6 @@ export function SettingsPanel({
           <strong>Использовать MinerU как парсер</strong>
         </label>
 
-        {/* Under-construction banner — MinerU pipeline known broken via VPN (Alibaba China S3) */}
-        <div style={{
-          margin: "12px 0",
-          padding: "8px",
-          border: "1px solid var(--border, #2a2a2a)",
-          borderRadius: 4,
-          backgroundColor: "var(--bg, #1e1e1e)",
-          color: "var(--text, #ccc)",
-          fontSize: 12,
-          textAlign: "center",
-          marginTop: 8,
-        }}>
-          ⚠️ В разработке
-        </div>
         <p className="muted small">
           MinerU — облачный парсер от OpenDataLab. Лучше встроенного pdf.js на
           сканированных PDF, формулах и многоколоночной вёрстке. Получи токен на{" "}

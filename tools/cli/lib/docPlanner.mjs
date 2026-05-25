@@ -1,4 +1,4 @@
-import { chat, stripCodeFences, mapWithConcurrency } from "./openrouter.mjs";
+import { chat, stripCodeFences, mapWithConcurrency } from "./mimo.mjs";
 import { dspGlossaryPrompt, applyGlossaryPost } from "./glossary.mjs";
 
 const TARGET_LANG = "Russian";

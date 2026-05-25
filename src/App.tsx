@@ -4,7 +4,7 @@ import { saveAs } from "file-saver";
 import { planSlides, planDoc } from "./lib/planner";
 import { buildPptx } from "./lib/pptxBuild";
 import { buildDocx } from "./lib/docxBuild";
-import { FREE_MODELS, DEFAULT_MODEL, DEFAULT_API_KEY } from "./lib/openrouter";
+import { FREE_MODELS, DEFAULT_MODEL, DEFAULT_API_KEY } from "./lib/mimo";
 import { DEFAULT_MINERU_TOKEN } from "./lib/mineru";
 import { expandInputs, type IntakeFile } from "./lib/intake";
 import { extractAny, suggestKind } from "./lib/extractAny";
@@ -24,18 +24,35 @@ interface UnsortedItem extends IntakeFile {
 
 export default function App() {
   /* ─── Settings ─────────────────────────── */
-  const [overrideKey, setOverrideKey] = useLocalStorage<string>("openrouter_key", "");
+  const [overrideKey, setOverrideKey] = useLocalStorage<string>("mimo_key", "");
   const apiKey = overrideKey.trim() || DEFAULT_API_KEY;
   const hasKey = !!apiKey;
-  const [model, setModel] = useLocalStorage<string>("openrouter_model", DEFAULT_MODEL);
+  const [model, setModel] = useLocalStorage<string>("mimo_model", DEFAULT_MODEL);
 
-  // One-time migration: Google free tier daily quota is tiny (10 req/day per
-  // key). Anyone whose localStorage still points at a google/* model gets
-  // bumped to the non-Google default. Runs once per mount; the next render
+  // One-time migration from the legacy OpenRouter storage keys.
+  // We used to store the API key under "openrouter_key" and the selected
+  // model under "openrouter_model"; the project has since moved to MiMo.
   useEffect(() => {
-    if (model?.startsWith("google")) {
+    try {
+      const legacyKey = localStorage.getItem("openrouter_key");
+      if (legacyKey && !overrideKey) {
+        // Don't copy old OpenRouter sk-or-… keys — they won't validate
+        // against MiMo. Just drop them so the user pastes a fresh one.
+        localStorage.removeItem("openrouter_key");
+      }
+      const legacyModel = localStorage.getItem("openrouter_model");
+      if (legacyModel) {
+        localStorage.removeItem("openrouter_model");
+      }
+    } catch {
+      /* ignore */
+    }
+    // If current model id doesn't look like a MiMo model, reset it.
+    const looksLikeMimo = model?.startsWith("mimo-");
+    if (!looksLikeMimo) {
       setModel(DEFAULT_MODEL);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const [showSettings, setShowSettings] = useState(!apiKey);
@@ -397,7 +414,7 @@ export default function App() {
           <div className="topbar-right">
             {!hasKey && (
               <span className="key-warning" onClick={() => setShowSettings(true)}>
-                ⚠ Нужен ключ OpenRouter
+                ⚠ Нужен ключ MiMo
               </span>
             )}
             <button className="ghost" onClick={() => setShowSettings((s) => !s)}>

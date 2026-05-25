@@ -11,7 +11,7 @@
 import { spawn } from "node:child_process";
 import { readFile, writeFile, mkdir, stat, rm } from "node:fs/promises";
 import path from "node:path";
-import { chat } from "./openrouter.mjs";
+import { chat } from "./mimo.mjs";
 
 const REDRAW_PROMPT = `Ты — научный иллюстратор для русского университетского курса ЦОС (Цифровая обработка сигналов).
 
@@ -99,7 +99,7 @@ export async function redrawFigure({ apiKey, model, models, sourcePath, workDir,
     if (st.isFile() && st.size > 1024) return outPath;
   } catch { /* not cached */ }
 
-  const modelList = models || (model ? [model] : ["google/gemma-4-31b-it:free", "nvidia/nemotron-nano-12b-v2-vl:free"]);
+  const modelList = models || (model ? [model] : ["mimo-v2.5", "mimo-v2-omni"]);
 
   // Pull bytes once for all attempts.
   const buf = await readFile(sourcePath);
@@ -157,7 +157,7 @@ export async function redrawFigure({ apiKey, model, models, sourcePath, workDir,
  * versions where redrawing succeeded. Original files left untouched.
  */
 export async function redrawAll({ apiKey, model, models, imagesByPage, workDir, concurrency = 1, onProgress }) {
-  const modelList = models || (model ? [model] : ["google/gemma-4-31b-it:free", "nvidia/nemotron-nano-12b-v2-vl:free"]);
+  const modelList = models || (model ? [model] : ["mimo-v2.5", "mimo-v2-omni"]);
   const entries = [];
   for (const [page, items] of Object.entries(imagesByPage)) {
     for (let i = 0; i < items.length; i++) {

@@ -56,9 +56,12 @@ export interface DocPlan {
   blocks: DocBlock[];
 }
 
-export interface OpenRouterModel {
+export interface MimoModel {
   id: string;
   label: string;
   vision: boolean;
   context: number;
 }
+
+/** @deprecated use MimoModel */
+export type OpenRouterModel = MimoModel;

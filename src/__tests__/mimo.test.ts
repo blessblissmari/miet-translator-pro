@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseJsonLoose } from "../lib/openrouter";
+import { parseJsonLoose } from "../lib/mimo";
 
 describe("parseJsonLoose", () => {
   it("parses plain JSON", () => {

@@ -3,7 +3,7 @@
 import { spawn } from "node:child_process";
 import { readFile, writeFile, mkdir, stat, rm } from "node:fs/promises";
 import path from "node:path";
-import { chat } from "./openrouter.mjs";
+import { chat } from "./mimo.mjs";
 
 const PROMPT = `Ты — научный иллюстратор для университетского курса ЦОС.
 
@@ -69,9 +69,9 @@ function runPdftoppm(pdfPath, pageNum, outPng) {
 }
 
 const MODELS = [
-  "google/gemma-4-31b-it:free",
-  "google/gemma-4-26b-a4b-it:free",
-  "nvidia/nemotron-nano-12b-v2-vl:free",
+  "mimo-v2.5",
+  "mimo-v2.5",
+  "mimo-v2-omni",
 ];
 
 export async function pageRedraw({ apiKey, pdfPath, pageNum, workDir, models = MODELS }) {
