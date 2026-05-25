@@ -12,6 +12,7 @@ import { extractPdf } from "./lib/extractPdf.mjs";
 import { chat, mapWithConcurrency, stripCodeFences } from "./lib/openrouter.mjs";
 import { dspGlossaryPrompt, applyGlossaryPost } from "./lib/glossary.mjs";
 import { sanitizeLatexMath } from "./lib/mathSanitize.mjs";
+import { polishRu } from "./lib/ruPolish.mjs";
 import { extractRasterImages } from "./lib/extractImages.mjs";
 import { redrawAll } from "./lib/redrawFigure.mjs";
 
@@ -73,7 +74,7 @@ function runPandoc(mdPath, outPath, resourcePath) {
     const args = [
       mdPath,
       "-o", outPath,
-      "--from", "markdown+tex_math_dollars+tex_math_double_backslash+pipe_tables",
+      "--from", "markdown+tex_math_dollars+tex_math_double_backslash+pipe_tables+raw_attribute",
       "--to", "docx",
       "--standalone",
     ];
@@ -141,8 +142,12 @@ for (const pdfPath of inputs) {
       for (const f of figs) {
         md += `\n![*Рисунок (стр. ${i + 1})*](${f.path})\n\n`;
       }
+      // Page break between source pages (pandoc raw OOXML block).
+      if (i + 1 < sections.length) {
+        md += '\n\n```{=openxml}\n<w:p><w:r><w:br w:type="page"/></w:r></w:p>\n```\n\n';
+      }
     });
-    md = sanitizeLatexMath(md);
+    md = polishRu(sanitizeLatexMath(md));
     const mdPath = path.join(mdDir, `${base}_ru.md`);
     await writeFile(mdPath, md, "utf8");
     const docxPath = path.join(outDir, `${base}_ru.docx`);

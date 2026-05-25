@@ -7,6 +7,7 @@ import { downsampleDataUrl } from "./imageOps";
 import { mapWithConcurrency } from "./concurrency";
 import { dspGlossaryPrompt, applyGlossaryPost } from "./glossary";
 import { latexToUnicode } from "./mathUnicode";
+import { polishRu } from "./ruPolish";
 import { stripCodeFences, TARGET_LANG, type PlannerOpts } from "./plannerShared";
 import type { SlidePlan, ExtractedDoc } from "./types";
 
@@ -195,11 +196,9 @@ async function planSlideRobust(
       layout = "title-text-image-right";
     }
     return {
-      title: latexToUnicode(applyGlossaryPost(normalizeMath((parsed.title || "").trim()))),
+      title: polishRu(latexToUnicode(applyGlossaryPost(normalizeMath((parsed.title || "").trim())))),
       bullets: (parsed.bullets || [])
-        .map((b: string) => latexToUnicode(applyGlossaryPost(normalizeMath(b.trim()))))
-        .filter(Boolean)
-        .slice(0, 12),
+        .slice(0, 12).map((b: string) => polishRu(latexToUnicode(applyGlossaryPost(b)))),
       layout,
       imageDataUrl:
         layout === "section-title" ? undefined : (bestImg ?? undefined),
@@ -250,8 +249,8 @@ function parseSlideFromPlain(
     ? "title-text-image-right"
     : "title-text";
   return {
-    title: latexToUnicode(applyGlossaryPost(title)),
-    bullets: bullets.slice(0, 12).map((b) => latexToUnicode(applyGlossaryPost(b))),
+    title: polishRu(latexToUnicode(applyGlossaryPost(title))),
+    bullets: bullets.slice(0, 12).map((b) => polishRu(latexToUnicode(applyGlossaryPost(b)))),
     layout,
     imageDataUrl: imageDataUrl ?? undefined,
   };

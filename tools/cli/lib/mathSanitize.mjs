@@ -80,10 +80,32 @@ function stripUnsupportedTex(md) {
 
 export function sanitizeLatexMath(md) {
   md = stripUnsupportedTex(md);
+  md = fixUnitsInMath(md);
   // First pass: $$...$$
   md = md.replace(/\$\$([\s\S]*?)\$\$/g, (_m, body) => `$$${sanitizeMath(body)}$$`);
   // Second pass: $...$ (avoid $$ already handled — use single-$ regex that
   // doesn't span $$).
   md = md.replace(/(^|[^\$])\$([^\$\n]+?)\$(?!\$)/g, (_m, pre, body) => `${pre}$${sanitizeMath(body)}$`);
   return md;
+}
+
+function fixUnitsInMath(md) {
+  let prev = "";
+  let cur = md;
+  let iter = 0;
+  while (prev !== cur && iter < 5) {
+    prev = cur;
+    cur = cur.replace(/\$([^$\n]*?)\$/g, (m, body) => {
+      if (!/[а-яёА-ЯЁ]/.test(body)) return m;
+      let split = 0;
+      while (split < body.length && !/[а-яёА-ЯЁ]/.test(body[split])) split++;
+      while (split > 0 && /[\sа-яёА-ЯЁ]/.test(body[split - 1])) split--;
+      const math = body.slice(0, split).trim();
+      const tail = body.slice(split).trim();
+      if (!math) return tail;
+      return `$${math}$ ${tail}`;
+    });
+    iter++;
+  }
+  return cur;
 }

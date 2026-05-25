@@ -13,6 +13,7 @@ import {
   applyGlossaryPost,
   type Glossary,
 } from "./glossary";
+import { polishRu } from "./ruPolish";
 import {
   stripCodeFences,
   parseMarkdownToBlocks,
@@ -155,10 +156,10 @@ async function translateDocPage(
   // Post-pass: substitute any remaining English DSP terms.
   return blocks.map((b) => {
     if (b.type === "para" || b.type === "h1" || b.type === "h2" || b.type === "h3") {
-      return { ...b, text: applyGlossaryPost(b.text) };
+      return { ...b, text: polishRu(applyGlossaryPost(b.text)) };
     }
     if (b.type === "list") {
-      return { ...b, items: b.items.map((it) => applyGlossaryPost(it)) };
+      return { ...b, items: b.items.map((it) => polishRu(applyGlossaryPost(it))) };
     }
     return b;
   });

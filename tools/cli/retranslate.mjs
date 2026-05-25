@@ -7,6 +7,7 @@ import { spawn } from "node:child_process";
 import { chat, mapWithConcurrency } from "./lib/openrouter.mjs";
 import { dspGlossaryPrompt, applyGlossaryPost } from "./lib/glossary.mjs";
 import { sanitizeLatexMath } from "./lib/mathSanitize.mjs";
+import { polishRu } from "./lib/ruPolish.mjs";
 
 const apiKey = process.env.OPENROUTER_API_KEY_ONE;
 if (!apiKey) { console.error("Need OPENROUTER_API_KEY_ONE"); process.exit(1); }
@@ -92,7 +93,7 @@ const translated = await mapWithConcurrency(chunks, 3, async (c) => {
 });
 process.stderr.write("\n");
 
-const md = sanitizeLatexMath(translated.join("\n\n"));
+const md = polishRu(sanitizeLatexMath(translated.join("\n\n")));
 const mdPath = path.join(workDir, "russian.md");
 await writeFile(mdPath, md);
 
