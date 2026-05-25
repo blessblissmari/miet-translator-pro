@@ -45,7 +45,7 @@ function runPandoc(mdPath, outPath, resourcePath) {
     const args = [
       mdPath, "-o", outPath,
       "--from", "markdown+tex_math_dollars+tex_math_double_backslash+pipe_tables",
-      "--to", "docx", "--standalone",
+      "--to", "docx", "--standalone", "--toc", "--toc-depth=2",
     ];
     if (resourcePath) args.push("--resource-path", resourcePath);
     const p = spawn("pandoc", args, { stdio: ["ignore", "inherit", "inherit"] });

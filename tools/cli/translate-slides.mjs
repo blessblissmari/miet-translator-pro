@@ -10,6 +10,7 @@ import { translateSlides } from "./lib/slidePlanner.mjs";
 import { buildPptx } from "./lib/buildPptx.mjs";
 import { extractRasterImages } from "./lib/extractImages.mjs";
 import { redrawAll } from "./lib/redrawFigure.mjs";
+import { cropFiguresForPages } from "./lib/figureCrop.mjs";
 
 const apiKey = process.env.OPENROUTER_API_KEY_ONE;
 if (!apiKey) { console.error("OPENROUTER_API_KEY_ONE not set"); process.exit(1); }
@@ -53,6 +54,36 @@ for (const pdfPath of inputs) {
       });
       const replaced = Object.values(figs).flat().filter(f => f.redrawn).length;
       console.log(`\n  ✓ redrew ${replaced}/${totalImgs} figures (${totalImgs - replaced} kept original)`);
+    }
+
+    if (process.env.CROP_VECTOR === "1") {
+      const totalPages = pages.length;
+      const cropPages = [];
+      for (let i = 1; i <= totalPages; i++) {
+        if (!figs[i] || figs[i].length === 0) cropPages.push(i);
+      }
+      if (cropPages.length) {
+        const FIG_HINT = /(shown\s+(below|in)|the\s+figure\b|plot|graph|magnitude\s+response|frequency\s+response|impulse\s+response|pole-zero|зависимость|показано|приведе)/i;
+        const filtered = cropPages.filter(pn => {
+          const t = pages.find(p => p.index + 1 === pn)?.text || "";
+          return FIG_HINT.test(t);
+        });
+        if (filtered.length === 0) {
+          console.log("  no plot hints in page text — skipping vector crop");
+        } else {
+          console.log(`  detecting vector figures on ${filtered.length}/${cropPages.length} hinted pages…`);
+          const cropDir = path.join(outDir, "figures-vector", base);
+          const crops = await cropFiguresForPages({
+            apiKey, pdfPath, pages: filtered, workDir: cropDir,
+            onProgress: (d, t, pn) => process.stdout.write(`\r  detecting figures ${d}/${t} (page ${pn})…`),
+          });
+          const found = Object.keys(crops).length;
+          console.log(`\n  ✓ found ${found} vector figures (no pdfimages raster)`);
+          for (const [pn, p] of Object.entries(crops)) {
+            figs[pn] = [{ path: p, width: 0, height: 0, vector: true }];
+          }
+        }
+      }
     }
 
     const slides = await translateSlides({

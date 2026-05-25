@@ -4,12 +4,20 @@ test.describe("MIET Translator Pro — smoke", () => {
   test("app boots and shows the empty state", async ({ page }) => {
     await page.goto("/");
     await expect(page.getByRole("heading", { name: /MIET Translator/i })).toBeVisible();
-    await expect(page.getByText(/Брось/)).toBeVisible();
+    // Dropzone copy contains "Брось" — present regardless of key state.
+    await expect(page.getByText(/Брось/).first()).toBeVisible();
   });
 
-  test("settings panel toggles", async ({ page }) => {
+  test("settings panel is reachable and key field is rendered", async ({ page }) => {
     await page.goto("/");
-    // Without a key, the warning is visible and Settings open by default.
-    await expect(page.getByText(/Нужен ключ OpenRouter|API key|OpenRouter/i).first()).toBeVisible();
+    // "OpenRouter API key" label is in the SettingsPanel.
+    await expect(page.getByText(/OpenRouter API key/i)).toBeVisible();
+    // sk-or-v1 placeholder hints that the input is present.
+    await expect(page.getByPlaceholder(/sk-or-v1/i)).toBeVisible();
+  });
+
+  test("MinerU parser toggle is rendered", async ({ page }) => {
+    await page.goto("/");
+    await expect(page.getByText(/MinerU/i).first()).toBeVisible();
   });
 });

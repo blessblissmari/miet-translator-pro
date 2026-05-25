@@ -13,7 +13,7 @@ export default defineConfig({
   reporter: process.env.CI ? "github" : "list",
 
   use: {
-    baseURL: "http://localhost:5173",
+    baseURL: "http://127.0.0.1:5173",
     trace: "retain-on-failure",
     actionTimeout: 10_000,
     navigationTimeout: 30_000,
@@ -27,8 +27,8 @@ export default defineConfig({
   ],
 
   webServer: {
-    command: "npm run dev",
-    port: 5173,
+    command: "npm run preview -- --port 5173 --host 127.0.0.1 --strictPort",
+    url: "http://127.0.0.1:5173/",
     reuseExistingServer: !process.env.CI,
     timeout: 60_000,
   },

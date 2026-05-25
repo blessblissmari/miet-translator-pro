@@ -77,8 +77,10 @@ function runPandoc(mdPath, outPath, resourcePath) {
       "--from", "markdown+tex_math_dollars+tex_math_double_backslash+pipe_tables+raw_attribute",
       "--to", "docx",
       "--standalone",
+      "--toc",
+      "--toc-depth=2",
+      "--resource-path=" + resourcePath,
     ];
-    if (resourcePath) args.push("--resource-path", resourcePath);
     const p = spawn("pandoc", args);
     let stderr = "";
     p.stderr.on("data", d => stderr += d);

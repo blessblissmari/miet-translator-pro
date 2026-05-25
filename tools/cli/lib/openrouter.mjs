@@ -2,6 +2,8 @@
 const ENDPOINT = "https://openrouter.ai/api/v1/chat/completions";
 
 export async function chat({ apiKey, model, messages, maxTokens = 4096, temperature = 0.2, signal, retries = 5 }) {
+  const altKey = process.env.OPENROUTER_API_KEY_TWO;
+  const keys = altKey && altKey !== apiKey ? [apiKey, altKey] : [apiKey];
   let lastErr;
   for (let attempt = 0; attempt < retries; attempt++) {
     try {
@@ -16,7 +18,7 @@ export async function chat({ apiKey, model, messages, maxTokens = 4096, temperat
       const r = await fetch(ENDPOINT, {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${apiKey}`,
+          Authorization: `Bearer ${keys[attempt % keys.length]}`,
           "Content-Type": "application/json",
           "HTTP-Referer": "https://github.com/blessblissmari/miet-translator-pro",
           "X-Title": "MIET Translator Pro CLI",

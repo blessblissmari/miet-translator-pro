@@ -64,7 +64,7 @@ function runPandoc(mdPath, outPath, resourcePath) {
     const args = [
       mdPath, "-o", outPath,
       "--from", "markdown+tex_math_dollars+tex_math_double_backslash+pipe_tables",
-      "--to", "docx", "--standalone",
+      "--to", "docx", "--standalone", "--toc", "--toc-depth=2",
     ];
     if (resourcePath) args.push("--resource-path", resourcePath);
     const p = spawn("pandoc", args, { stdio: ["ignore", "inherit", "inherit"] });
@@ -98,7 +98,7 @@ const mdPath = path.join(workDir, "russian.md");
 await writeFile(mdPath, md);
 
 const base = path.basename(workDir);
-const outDir = process.env.OUT_DIR || process.env.OUT_DIR || "./outputs";
+const outDir = process.env.OUT_DIR || "/home/.z/workspaces/con_lVFiPbfyeSo3NaBa/outputs";
 const outPath = path.join(outDir, `${base}_ru.docx`);
 await runPandoc(mdPath, outPath, dir);
 console.log(`✓ ${outPath}`);
