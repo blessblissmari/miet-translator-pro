@@ -29,11 +29,12 @@ export default function App() {
   const hasKey = !!apiKey;
   const [model, setModel] = useLocalStorage<string>("openrouter_model", DEFAULT_MODEL);
 
-  // One-time migration: Google free tier is heavily rate-limited; users who saved
-  // a Google model
+  // One-time migration: Google free tier daily quota is tiny (10 req/day per
+  // key). Anyone whose localStorage still points at a google/* model gets
+  // bumped to the non-Google default. Runs once per mount; the next render
   useEffect(() => {
-    if (model?.startsWith("g")) {
-      setModel("openrouter");
+    if (model?.startsWith("google")) {
+      setModel(DEFAULT_MODEL);
     }
   }, []);
 
