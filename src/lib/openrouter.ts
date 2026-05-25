@@ -25,6 +25,23 @@ export function pickKey(userKey: string | undefined | null): string {
   return k;
 }
 
+// Per-tab cache of models that returned 429 recently. We skip them for a cool-down
+// window instead of burning more retries.
+const RATE_LIMITED: Map<string, number> = new Map();
+const RATE_LIMIT_TTL_MS = 60_000;
+function markRateLimited(model: string): void {
+  RATE_LIMITED.set(model, Date.now() + RATE_LIMIT_TTL_MS);
+}
+function isRateLimited(model: string): boolean {
+  const exp = RATE_LIMITED.get(model);
+  if (!exp) return false;
+  if (Date.now() > exp) {
+    RATE_LIMITED.delete(model);
+    return false;
+  }
+  return true;
+}
+
 export const FREE_MODELS: OpenRouterModel[] = [
   // Vision-capable: handles printed text, scans, and handwriting.
   { id: "google/gemma-4-26b-a4b-it:free",                       label: "Gemma 4 26B — vision (рекомендуется, академический русский)", vision: true,  context: 262144 },
@@ -130,6 +147,7 @@ export async function chat(opts: ChatOptions): Promise<string> {
   let lastErr: unknown = new Error("no attempts made");
   for (let mi = 0; mi < chain.length; mi++) {
     const model = chain[mi];
+    if (isRateLimited(model)) continue;
     try {
       return await chatOnce({ ...opts, model });
     } catch (e) {
@@ -180,6 +198,7 @@ async function chatOnce(opts: ChatOptions): Promise<string> {
         if (fatal) throw err;
         // Retryable (429 / 5xx). Honor Retry-After when present (seconds or HTTP-date).
         lastErr = err;
+        if (err.status === 429) markRateLimited(opts.model);
         const ra = parseRetryAfter(res.headers.get("retry-after"));
         const fallback = Math.min(60_000, 2000 * Math.pow(2, attempt));
         const wait = ra ?? fallback;

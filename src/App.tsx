@@ -28,6 +28,15 @@ export default function App() {
   const apiKey = overrideKey.trim() || DEFAULT_API_KEY;
   const hasKey = !!apiKey;
   const [model, setModel] = useLocalStorage<string>("openrouter_model", DEFAULT_MODEL);
+
+  // One-time migration: Google free tier is heavily rate-limited; users who saved
+  // a Google model
+  useEffect(() => {
+    if (model?.startsWith("g")) {
+      setModel("openrouter");
+    }
+  }, []);
+
   const [showSettings, setShowSettings] = useState(!apiKey);
 
   // MinerU (alternative PDF parser) — opt-in. Two modes:
