@@ -39,13 +39,13 @@ jobs:
       - name: Build
         env:
           BASE_PATH: /${{ github.event.repository.name }}/
-          VITE_OPENROUTER_KEY_1: ${{ secrets.OPENROUTER_KEY_1 }}
-          VITE_OPENROUTER_KEY_2: ${{ secrets.OPENROUTER_KEY_2 }}
-          VITE_OPENROUTER_KEY_3: ${{ secrets.OPENROUTER_KEY_3 }}
-          VITE_OPENROUTER_KEY_4: ${{ secrets.OPENROUTER_KEY_4 }}
-          VITE_OPENROUTER_KEY_5: ${{ secrets.OPENROUTER_KEY_5 }}
-          VITE_OPENROUTER_KEY_6: ${{ secrets.OPENROUTER_KEY_6 }}
-          VITE_OPENROUTER_KEY_7: ${{ secrets.OPENROUTER_KEY_7 }}
+          VITE_MIMO_KEY_1: ${{ secrets.MIMO_KEY_1 }}
+          VITE_MIMO_KEY_2: ${{ secrets.MIMO_KEY_2 }}
+          VITE_MIMO_KEY_3: ${{ secrets.MIMO_KEY_3 }}
+          VITE_MIMO_KEY_4: ${{ secrets.MIMO_KEY_4 }}
+          VITE_MIMO_KEY_5: ${{ secrets.MIMO_KEY_5 }}
+          VITE_MIMO_KEY_6: ${{ secrets.MIMO_KEY_6 }}
+          VITE_MIMO_KEY_7: ${{ secrets.MIMO_KEY_7 }}
           VITE_MINERU_TOKEN: ${{ secrets.MINERU_TOKEN }}
         run: npm run build
       - name: Add 404 fallback (SPA routing)
