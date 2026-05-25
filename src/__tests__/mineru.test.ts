@@ -153,7 +153,7 @@ describe("MinerU API client (mocked fetch)", () => {
     const id = await submitFileTask(blob, "test.pdf", { token: "x" });
     expect(id).toBe("batch_abc");
     // Verify the PUT was called to the signed URL
-    expect(fetchSpy.mock.calls[1][0]).toBe("https://upload.example.com/sig1");
+    expect(fetchSpy.mock.calls[1][0]).toContain("https://upload.example.com/sig1");
     expect(fetchSpy.mock.calls[1][1]).toMatchObject({ method: "PUT" });
   });
 

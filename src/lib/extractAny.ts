@@ -87,7 +87,11 @@ export async function extractAny(
         onProgress?.(0, 1);
       },
     };
-    return extractWithMineru(blob, filename, mineruOpts);
+    try {
+      return extractWithMineru(blob, filename, mineruOpts);
+    } catch {
+      throw new Error("Failed to extract with MinerU");
+    }
   }
 
   switch (k) {

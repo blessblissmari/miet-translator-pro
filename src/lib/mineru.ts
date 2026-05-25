@@ -186,8 +186,9 @@ export async function submitFileTask(
     throw new Error(`MinerU upload-url error: ${reqJson.msg ?? "unknown"}`);
   }
   const { batch_id, file_urls } = reqJson.data;
-  // Step 2 — PUT the file to the signed URL
-  const putRes = await fetch(file_urls[0], {
+  // Step 2 — PUT the file to the signed URL. The signed URL passed through
+  // the CORS proxy, so we must route the PUT through the same proxy.
+  const putRes = await fetch(`https://corsproxy.io/?${file_urls[0]}`, {
     method: "PUT",
     body: file,
     signal: opts.signal,
