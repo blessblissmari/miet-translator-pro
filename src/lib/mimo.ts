@@ -38,22 +38,22 @@ const MODELS_URL = `${API_BASE}/models`;
  */
 export const FREE_MODELS: MimoModel[] = [
   {
-    id: "mimo-v2.5-pro",
-    label: "MiMo V2.5 Pro · флагман, мультимодал",
-    vision: true,
-    context: 128_000,
-  },
-  {
     id: "mimo-v2.5",
-    label: "MiMo V2.5 · быстрый мультимодал",
+    label: "MiMo V2.5 · мультимодал (текст+зрение)",
     vision: true,
     context: 128_000,
   },
   {
     id: "mimo-v2-omni",
-    label: "MiMo V2 Omni · текст+зрение",
+    label: "MiMo V2 Omni · мультимодал (текст+зрение)",
     vision: true,
     context: 64_000,
+  },
+  {
+    id: "mimo-v2.5-pro",
+    label: "MiMo V2.5 Pro · флагман, ТОЛЬКО ТЕКСТ",
+    vision: false,
+    context: 128_000,
   },
   {
     id: "mimo-v2-pro",
@@ -63,7 +63,7 @@ export const FREE_MODELS: MimoModel[] = [
   },
 ];
 
-export const DEFAULT_MODEL = "mimo-v2.5-pro";
+export const DEFAULT_MODEL = "mimo-v2.5";
 
 /** Fallback chain used when a model fails with a transient error. */
 const FALLBACK_CHAIN: Record<string, string[]> = {
@@ -140,7 +140,7 @@ async function chatOnce(opts: ChatOptions): Promise<string> {
     apiKey,
     model,
     messages,
-    maxTokens = 4096,
+    maxTokens = 8192,
     temperature = 0.2,
     signal,
     responseJson,
@@ -188,7 +188,12 @@ async function chatOnce(opts: ChatOptions): Promise<string> {
     );
   }
 
-  let data: { choices?: Array<{ message?: { content?: string } }> };
+  let data: {
+    choices?: Array<{
+      message?: { content?: string; reasoning_content?: string };
+      finish_reason?: string;
+    }>;
+  };
   try {
     data = JSON.parse(text);
   } catch {
@@ -198,9 +203,18 @@ async function chatOnce(opts: ChatOptions): Promise<string> {
       false,
     );
   }
-  const content = data.choices?.[0]?.message?.content;
+  const choice = data.choices?.[0];
+  const content = choice?.message?.content;
   if (typeof content !== "string" || content.length === 0) {
-    throw new MimoError("MiMo: empty completion", res.status, false);
+    const reasoning = choice?.message?.reasoning_content;
+    const finish = choice?.finish_reason ?? "?";
+    throw new MimoError(
+      reasoning
+        ? `MiMo: completion empty (reasoning ate budget, finish=${finish}). Retrying.`
+        : `MiMo: empty completion (finish=${finish})`,
+      res.status,
+      false,
+    );
   }
   return content;
 }

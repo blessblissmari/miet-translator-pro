@@ -52,6 +52,11 @@ export default function App() {
     if (!looksLikeMimo) {
       setModel(DEFAULT_MODEL);
     }
+    // If current model id is unknown (not in FREE_MODELS), reset to default.
+    const known = FREE_MODELS.some((m) => m.id === model);
+    if (!known) {
+      setModel(DEFAULT_MODEL);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
