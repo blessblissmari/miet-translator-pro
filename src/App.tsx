@@ -433,9 +433,7 @@ export default function App() {
             apiKey={apiKey}
             overrideKey={overrideKey}
             hasKey={hasKey}
-            model={model}
             onKeyChange={setOverrideKey}
-            onModelChange={setModel}
             mineruEnabled={mineruEnabled}
             mineruMode={mineruMode}
             mineruToken={mineruTokenOverride}

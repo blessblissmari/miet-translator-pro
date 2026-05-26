@@ -1,6 +1,5 @@
 import { useState } from "react";
 import {
-  FREE_MODELS,
   validateApiKey,
   HAS_BUILTIN_KEYS,
 } from "../lib/mimo";
@@ -10,9 +9,7 @@ interface SettingsPanelProps {
   apiKey: string;
   overrideKey: string;
   hasKey: boolean;
-  model: string;
   onKeyChange: (key: string) => void;
-  onModelChange: (model: string) => void;
   // MinerU integration
   mineruEnabled: boolean;
   mineruMode: "cloud" | "local";
@@ -32,9 +29,7 @@ export function SettingsPanel({
   apiKey,
   overrideKey,
   hasKey,
-  model,
   onKeyChange,
-  onModelChange,
   mineruEnabled,
   mineruMode,
   mineruToken,
@@ -141,16 +136,9 @@ export function SettingsPanel({
           )}
         </div>
       </div>
-      <label>
-        Модель{" "}
-        <select value={model} onChange={(e) => onModelChange(e.target.value)}>
-          {FREE_MODELS.map((m) => (
-            <option key={m.id} value={m.id}>
-              {m.label}
-            </option>
-          ))}
-        </select>
-      </label>
+      <p className="muted small" style={{ marginTop: 8 }}>
+        Модель перевода: <strong>MiMo V2.5</strong> · vision/OCR. Автоматически смотрит на каждую страницу как картинку — формулы и графики переводятся «глазами», а не текстом.
+      </p>
 
       {/* ── MinerU (optional alternative PDF parser) ── */}
       <div className="mineru-row" style={{ marginTop: 16, paddingTop: 16, borderTop: "1px solid var(--border, #2a2a2a)" }}>
