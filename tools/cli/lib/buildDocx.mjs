@@ -1,5 +1,5 @@
 import {
-  Document, Packer, Paragraph, HeadingLevel, TextRun, AlignmentType,
+  Document, Packer, Paragraph, HeadingLevel, TextRun, ImageRun, AlignmentType,
   Table, TableRow, TableCell, WidthType, BorderStyle, LevelFormat,
 } from "docx";
 
@@ -66,6 +66,38 @@ function blockToElements(block) {
         rows,
         borders: { top: border, bottom: border, left: border, right: border, insideHorizontal: border, insideVertical: border },
       })];
+    }
+    case "figure": {
+      // Embed a raster figure with optional caption. We resize proportionally
+      // so the longest side fits within ~5.5 in (page width minus margins).
+      const ext = (block.ext || "png").toLowerCase();
+      const typeMap = { jpg: "jpeg", jpeg: "jpeg", png: "png", gif: "gif", bmp: "bmp" };
+      const type = typeMap[ext] || "png";
+      // Default size: 6 inches wide at 96 DPI = 576 px; keep aspect by passing height proportionally.
+      const w = block.w && block.w > 0 ? block.w : 600;
+      const h = block.h && block.h > 0 ? block.h : 400;
+      const maxPx = 540; // ~5.6 in at 96 DPI
+      const scale = Math.min(1, maxPx / Math.max(w, h));
+      const outW = Math.round(w * scale);
+      const outH = Math.round(h * scale);
+      const para = new Paragraph({
+        alignment: AlignmentType.CENTER,
+        children: [new ImageRun({
+          data: block.imageBuffer,
+          transformation: { width: outW, height: outH },
+          type,
+        })],
+        spacing: { before: 120, after: 60 },
+      });
+      const out = [para];
+      if (block.caption) {
+        out.push(new Paragraph({
+          alignment: AlignmentType.CENTER,
+          children: [new TextRun({ text: block.caption, italics: true, font: "Times New Roman", size: 24 })],
+          spacing: { after: 120 },
+        }));
+      }
+      return out;
     }
     default:
       return [];

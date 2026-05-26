@@ -44,12 +44,29 @@ for (const inp of inputs) {
 
     const allBlocks = [];
     let title;
+    let figNum = 0;
     for (let i = 0; i < markdowns.length; i++) {
       const blocks = parseMarkdownToBlocks(markdowns[i]);
       if (i === 0 && !title && blocks.length && blocks[0].type === "h1") {
         title = blocks.shift().text;
       }
       allBlocks.push(...blocks);
+      const pageImgs = pages[i].images || [];
+      for (let k = 0; k < pageImgs.length; k++) {
+        const img = pageImgs[k];
+        figNum++;
+        const caption = img.isPageRender
+          ? `Стр. ${i + 1}`
+          : (pageImgs.length === 1 ? `Рис. ${figNum}` : `Рис. ${figNum}`);
+        allBlocks.push({
+          type: "figure",
+          imageBuffer: img.buffer,
+          ext: img.ext,
+          w: img.w,
+          h: img.h,
+          caption,
+        });
+      }
       if (i < markdowns.length - 1) {
         // page separator
         allBlocks.push({ type: "para", text: "" });
