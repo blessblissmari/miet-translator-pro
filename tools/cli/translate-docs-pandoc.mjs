@@ -5,7 +5,7 @@
 // This matches the уренцев reference quality (real Office equations).
 //
 // Usage: node translate-docs-pandoc.mjs <pdf...>
-import { writeFile, mkdir, readFile } from "node:fs/promises";
+import { writeFile, mkdir, readFile, stat } from "node:fs/promises";
 import { spawn } from "node:child_process";
 import path from "node:path";
 import { extractPdf } from "./lib/extractPdf.mjs";
@@ -56,6 +56,17 @@ function normalizeMathDelims(s) {
   return s
     .replace(/\\\[\s*([\s\S]*?)\s*\\\]/g, (_m, b) => `\n\n$$${b.trim()}$$\n\n`)
     .replace(/\\\(\s*([\s\S]*?)\s*\\\)/g, (_m, b) => `$${b.trim()}$`);
+}
+
+async function renderPageToPng(pdfPath, pageNum, outDir) {
+  await mkdir(outDir, { recursive: true });
+  const prefix = path.join(outDir, `page-${String(pageNum).padStart(3, "0")}`);
+  return new Promise((resolve, reject) => {
+    const p = spawn("pdftoppm", ["-png", "-r", "150", "-f", String(pageNum), "-l", String(pageNum), "-singlefile", pdfPath, prefix]);
+    let stderr = "";
+    p.stderr.on("data", d => stderr += d);
+    p.on("close", code => code === 0 ? resolve() : reject(new Error(`pdftoppm exit ${code}: ${stderr}`)));
+  });
 }
 
 async function translatePage(page) {
@@ -122,6 +133,40 @@ for (const pdfPath of inputs) {
 
     const pages = await extractPdf(pdfPath);
     console.log(`  pages=${pages.length}`);
+
+    // Fallback: for pages without substantial raster figures, render the
+    // whole page as a PNG so vector graphics (charts, equations drawn as
+    // PDF paths) aren't lost.
+    {
+      const pageRenderDir = path.join(outDir, "figures", base, "_pages");
+      let fallbackCount = 0;
+      for (let i = 1; i <= pages.length; i++) {
+        const pageImages = imagesByPage[i] || [];
+        if (pageImages.length === 0) {
+          await renderPageToPng(pdfPath, i, pageRenderDir);
+          const pngPath = path.join(pageRenderDir, `page-${String(i).padStart(3, "0")}.png`);
+          const stats = await stat(pngPath);
+          if (stats.size >= 5000) {
+            imagesByPage[i] = [{ path: pngPath }];
+            fallbackCount++;
+          }
+        } else {
+          let allTiny = true;
+          for (const img of pageImages) {
+            const stats = await stat(img.path);
+            if (stats.size >= 5000) { allTiny = false; break; }
+          }
+          if (allTiny) {
+            await renderPageToPng(pdfPath, i, pageRenderDir);
+            const pngPath = path.join(pageRenderDir, `page-${String(i).padStart(3, "0")}.png`);
+            imagesByPage[i] = [{ path: pngPath }];
+            fallbackCount++;
+          }
+        }
+      }
+      if (fallbackCount > 0) console.log(`  fallback: ${fallbackCount} pages rendered as PNG`);
+    }
+
     let done = 0;
     const sections = await mapWithConcurrency(pages, 4, async (p) => {
       try {
@@ -154,9 +199,9 @@ for (const pdfPath of inputs) {
     await writeFile(mdPath, md, "utf8");
     const docxPath = path.join(outDir, `${base}_ru.docx`);
     await runPandoc(mdPath, docxPath, figDir);
-    const stat = await readFile(docxPath);
+    const docxBuf = await readFile(docxPath);
     const ms = Date.now() - t0;
-    console.log(`  ✓ ${docxPath}  (${(ms / 1000).toFixed(1)}s, ${stat.length} bytes)`);
+    console.log(`  ✓ ${docxPath}  (${(ms / 1000).toFixed(1)}s, ${docxBuf.length} bytes)`);
     report.push({ file: base, status: "ok", pages: pages.length, ms });
   } catch (e) {
     console.error(`  ✗ ${e.message}`);
