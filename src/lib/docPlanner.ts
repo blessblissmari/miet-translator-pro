@@ -19,6 +19,7 @@ import {
   parseMarkdownToBlocks,
   normalizeMathDelims,
   wrapOrphanLatex,
+  sanitizeHtml,
   TARGET_LANG,
   type PlannerOpts,
 } from "./plannerShared";
@@ -48,7 +49,16 @@ STYLE rules:
 
 STRUCTURE rules:
 - Output ONLY the translated Markdown. No commentary. No code fences. No "Here is the translation".
+- **NEVER output HTML.** No <sub>, <sup>, <i>, <b>, <br>, <table>, <math>, <span>, <p>, <div> — Word does not render HTML inside paragraphs and they appear as literal text. Use ONLY plain Markdown and LaTeX math.
 - Preserve EVERY mathematical formula. Use LaTeX inside $...$ for inline math and $$...$$ on its own line for displayed equations. NEVER omit a formula. If the page is heavy with formulas, EVERY formula must appear in the output.
+- **EVERY math expression must be wrapped in $...$ or $$...$$**. This includes simple ones like:
+    WRONG: \`y[n] = x[n+1] - 2x[n] + x[n-1]\`
+    RIGHT: \`$y[n] = x[n+1] - 2x[n] + x[n-1]$\`
+    WRONG: \`H{x[n]} = \\delta[n-2]\`
+    RIGHT: \`$H\\{x[n]\\} = \\delta[n-2]$\`
+    WRONG: \`x_1\`, \`V_T\`, \`f_c\`
+    RIGHT: \`$x_1$\`, \`$V_T$\`, \`$f_c$\`
+  Even bare variables inside Russian prose must be wrapped: «при $x = 0$» not «при x = 0».
 - Use Markdown structure:
   - "# Title" for top-level title (only if the page is a cover/title page).
   - "## Heading" / "### Subheading" for section/sub-section headings.
@@ -56,7 +66,7 @@ STRUCTURE rules:
   - Plain paragraphs for prose.
 - Preserve numbering of problems and sub-questions exactly.
 - If the page mentions a figure that you cannot reproduce in text, mention it AT MOST ONCE with a short marker "(см. рис.)". Do NOT repeat the same marker multiple times in a row.
-- For tables: render as Markdown tables with | separators. The downstream pipeline will rebuild them as native DOCX tables.
+- For tables: render as Markdown tables with | separators. The downstream pipeline will rebuild them as native DOCX tables. NEVER use HTML <table>.
 - Use ONLY the dollar-sign math delimiters: $...$ for inline and $$...$$ for display equations. Do NOT use \\( \\) or \\[ \\]. Multi-line environments like \\begin{cases} ... \\end{cases} MUST be wrapped in $$ ... $$.
 - Do NOT prepend the document with a generic heading like "# Документ" or "# Domácí úkol". Only emit a heading if the page itself shows one.
 `;
@@ -68,8 +78,12 @@ Task: look at the attached image of a page (it may be handwritten lecture notes,
 
 CRITICAL rules:
 - Output ONLY translated Markdown. No commentary. No code fences.
+- **NEVER output HTML.** No <sub>, <sup>, <i>, <b>, <br>, <table>, <math>, <span>, <p>, <div> tags. Use ONLY plain Markdown and LaTeX math.
 - Read the page exhaustively. Do NOT skip handwritten margin notes, sub-questions, or formulas.
 - For mathematical content, use LaTeX in $...$ (inline) and $$...$$ (display). Reproduce subscripts, superscripts, fractions, integrals, sums faithfully. Multi-line environments (cases, align, matrix) MUST be wrapped in $$ ... $$. Never use \\( \\) or \\[ \\].
+- **EVERY math expression must be wrapped in $...$ — even single variables like $x_1$, $V_T$, $y[n]$. Whole equations must be one math span, not fragments:
+    WRONG: \`y[n] = \\mathcal{H}\\{x[n]\\}\`
+    RIGHT: \`$y[n] = \\mathcal{H}\\{x[n]\\}$\`
 - Use Markdown structure: # for top heading, ##/### for sections, "- item" for bullets, "1." for ordered lists.
 - For diagrams/sketches you cannot transcribe, leave AT MOST ONE short marker "(см. рис.)" — never repeat it.
 - If you cannot read part of the page (smudged, cut off), write "[нечитаемо]" inline — do NOT invent content.
@@ -88,7 +102,7 @@ ok=true когда покрытие полное.`;
 
 const MATH_AUDIT_PROMPT = `Ты — строгий проверяющий математических формул.
 Получишь изображение страницы и черновой Markdown.
-Найди ВСЕ математические выражения на странице, которые в Markdown НЕ обёрнуты в \$...\$ или \$\$...\$\$
+Найди ВСЕ математические выражения на странице, которые в Markdown НЕ обёрнуты в $...$ или $$...$$
 (например: y[n] = ..., x_1[n], H{x[n]}, \\delta[n-2], \\mathcal{H}, max(...), и подобные).
 
 ВЕРНИ строго JSON: {"ok":boolean,"unwrapped":["цитата неправильного фрагмента", ...]}.
@@ -235,7 +249,7 @@ async function translateDocPage(
       } catch { /* ignore verify errors */ }
     }
   }
-  const blocks = parseMarkdownToBlocks(wrapOrphanLatex(normalizeMath(normalizeMathDelims(stripCodeFences(raw)))));
+  const blocks = parseMarkdownToBlocks(wrapOrphanLatex(normalizeMath(normalizeMathDelims(sanitizeHtml(stripCodeFences(raw))))));
   // Post-pass: substitute any remaining English DSP terms.
   return blocks.map((b) => {
     if (b.type === "para" || b.type === "h1" || b.type === "h2" || b.type === "h3") {
@@ -322,9 +336,13 @@ export async function planDoc(
 
     const pageW = page.width || 1;
     const pageH = page.height || 1;
+    // Filter: keep all reasonably-sized figures. Previous threshold of 0.7
+    // dropped near-full-page raster figures (scans, diagrams, charts) which
+    // is the most common figure type in MIET coursework. Allow up to 0.95
+    // so we only skip true page-background scans.
     const realFigs = (page.images || []).filter((im) => {
       const coverage = (im.w * im.h) / (pageW * pageH);
-      return coverage > 0 && coverage < 0.7;
+      return coverage > 0.005 && coverage < 0.95;
     });
     for (let k = 0; k < realFigs.length; k++) {
       allBlocks.push({
@@ -335,6 +353,37 @@ export async function planDoc(
             ? `Рис. ${i + 1}`
             : `Рис. ${i + 1}.${k + 1}`,
       });
+    }
+
+    // Fallback: if pdfjs found no embedded raster but the translation
+    // references a figure, the figure is likely vector-only (TikZ / matplotlib
+    // PDF export). Drop in the full-page render so the figure isn't lost.
+    if (realFigs.length === 0 && r.ok) {
+      const translated = r.value
+        .map((b) =>
+          b.type === "para" || b.type === "h1" || b.type === "h2" || b.type === "h3"
+            ? b.text
+            : b.type === "list"
+              ? b.items.join(" ")
+              : "",
+        )
+        .join("\n");
+      const mentionsFig =
+        /\(\s*см\.?\s*рис(?:унок|\.)?[^)]*\)/i.test(translated) ||
+        /!\[[^\]]*\]\([^)]+\)/.test(translated) ||
+        /\b(?:figure|fig\.?)\s*\d+/i.test(translated);
+      if (mentionsFig && page.imageDataUrl) {
+        try {
+          const figUrl = await downsampleDataUrl(page.imageDataUrl, { maxDim: 1400 });
+          allBlocks.push({
+            type: "figure",
+            imageDataUrl: figUrl,
+            caption: `Рис. ${i + 1} (страница оригинала)`,
+          });
+        } catch {
+          /* ignore — don't fail the whole doc over a fallback figure */
+        }
+      }
     }
   }
 

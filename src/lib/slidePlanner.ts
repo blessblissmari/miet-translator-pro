@@ -8,7 +8,7 @@ import { mapWithConcurrency } from "./concurrency";
 import { dspGlossaryPrompt, applyGlossaryPost } from "./glossary";
 import { latexToUnicode } from "./mathUnicode";
 import { polishRu } from "./ruPolish";
-import { stripCodeFences, TARGET_LANG, type PlannerOpts } from "./plannerShared";
+import { stripCodeFences, sanitizeHtml, TARGET_LANG, type PlannerOpts } from "./plannerShared";
 import type { SlidePlan, ExtractedDoc } from "./types";
 
 const SLIDE_LAYOUTS = [
@@ -30,6 +30,7 @@ Output ONLY valid JSON (no commentary, no markdown fences) matching:
 Rules:
 - Translate slide content into ${lang}. Keep math formulas, code, identifiers, proper names verbatim.
 - Inside bullets, keep math in LaTeX delimiters: $...$ (inline) and $$...$$ (display).
+- **NEVER output HTML.** No <sub>, <sup>, <i>, <b>, <br>, <math>, <span> tags — use Markdown / LaTeX only.
 - Pick "section-title" only for pure chapter/section heading slides.
 - Pick "title-image" if the slide is dominated by a figure with little text.
 - Pick "title-text-image-right" if substantial text alongside a meaningful figure.
@@ -129,7 +130,7 @@ async function planSlideRobust(
         },
       ],
     });
-    return parseSlideFromPlain(normalizeMath(stripCodeFences(out)), bestImg);
+    return parseSlideFromPlain(normalizeMath(sanitizeHtml(stripCodeFences(out))), bestImg);
   }
 
   // Primary: structured JSON
@@ -193,9 +194,9 @@ async function planSlideRobust(
       layout = "title-text-image-right";
     }
     return {
-      title: polishRu(latexToUnicode(applyGlossaryPost(normalizeMath((parsed.title || "").trim())))),
+      title: polishRu(latexToUnicode(applyGlossaryPost(sanitizeHtml(normalizeMath((parsed.title || "").trim()))))),
       bullets: (parsed.bullets || [])
-        .slice(0, 12).map((b: string) => polishRu(latexToUnicode(applyGlossaryPost(b)))),
+        .slice(0, 12).map((b: string) => polishRu(latexToUnicode(applyGlossaryPost(sanitizeHtml(b))))),
       layout,
       imageDataUrl:
         layout === "section-title" ? undefined : (bestImg ?? undefined),
@@ -218,7 +219,7 @@ async function planSlideRobust(
         { role: "user", content: page.text.slice(0, 6000) },
       ],
     });
-    return parseSlideFromPlain(normalizeMath(stripCodeFences(plain)), bestImg);
+    return parseSlideFromPlain(normalizeMath(sanitizeHtml(stripCodeFences(plain))), bestImg);
   }
 }
 

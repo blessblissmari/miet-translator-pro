@@ -24,6 +24,7 @@ images, OMML math, GOST formatting.
 
 | commit  | summary |
 |---------|---------|
+| HEAD    | **3-bug fix pass**: HTML sanitizer in pipeline; whole-line equation wrap; figure fallback for vector pages; broader figure-filter coverage (0.005–0.95) |
 | 66b45de | Conservative `wrapOrphanLatex`; MinerU PUT direct→proxy fallback |
 | 2e02c0f | Web: vision-always, verify pass, math-audit pass, broad wrap |
 | b9de12f | CLI: triple-pass verify+math audit+bareMath wrapper |
@@ -57,40 +58,39 @@ from Russia. Single API key with 200M credits.
    - Direct PUT to Alibaba OSS signed URL → CORS preflight fails (no CORS on
      bucket; `OPTIONS` returns 405).
    - Direct POST to `mineru.net/api/v4/*` → also no CORS (`OPTIONS` 405).
-   - Through `corsproxy.io/?<url>` → 403 SignatureDoesNotMatch (proxy mangles
-     headers / passes wrong Content-Type, signature breaks).
-   - User explicitly refused a server-side relay: «нам не нужен relay».
-   - GitHub issue #4145 confirms: OSS pre-signed URL requires PUT with **no**
-     Content-Type and no extra headers. Curl/Python work; browser does not.
-   - **State**: stuck. Realistic options:
-     - (a) Convince user to allow a relay (zo.space `/api/put-proxy` is 20 LOC).
-     - (b) Add a feature flag to disable MinerU entirely until a fix exists.
-     - (c) Switch to MinerU's URL-submission flow (file must be public first —
-       requires user-side upload to some public bucket; not great).
-   - Current code: `src/lib/mineru.ts` tries direct PUT first, falls back to
-     URL-encoded `corsproxy.io`. Both fail in browser. Default Settings has
-     MinerU off; turning it on triggers the 403.
+   - Through `corsproxy.io/?<url>` → 403 SignatureDoesNotMatch.
+   - User explicitly refused a server-side relay.
+   - **State**: stuck. See section 10 for realistic options.
 
-2. **Web formula rendering quality**. User keeps reporting raw LaTeX visible
-   in final DOCX. Investigation showed two pieces:
-   - The actual DOCX **does** render formulas as Office equations (OMML), it
-     just *looks* like raw LaTeX when you `pandoc → markdown` round-trip.
-   - But there are still cases where the model returns prose like
-     `y[n] = \mathcal{H}\{x[n]\} = x[n+1] - 2x[n] + x[n-1]` with **no
-     `$...$` delimiters**. `wrapOrphanLatex` in `src/lib/plannerShared.ts` is
-     supposed to wrap these — current version is CONSERVATIVE (commit 66b45de)
-     after I broke it with an over-aggressive version that wrapped Russian
-     prose. The CLI uses `wrapBareMath` from
-     `tools/cli/lib/mathSanitize.mjs` which is broader. Web should probably
-     mirror the CLI's bareMath, but carefully — last attempt mangled Russian.
+2. ~~**Web formula rendering quality**~~ — **partially addressed (HEAD)**:
+   - `sanitizeHtml` runs before block parsing — strips/converts `<sub>`,
+     `<sup>`, `<i>`, `<b>`, `<br>`, MathML, HTML entities so they never reach
+     the DOCX as literal HTML text.
+   - `wrapOrphanLatex` now has a **pass C**: whole math-shaped lines
+     (contain `=`, no Cyrillic, math-only chars) are wrapped as a single
+     `$...$` span instead of being fragmented. Pass A (backslash commands)
+     and Pass B (bracket-subscript identifiers) still run for cases C
+     didn't trigger on.
+   - Prompts (`DOC_TRANSLATE_PROMPT`, `VISION_OCR_PROMPT`, slide prompt)
+     now explicitly forbid HTML output and include WRONG/RIGHT examples
+     for math wrapping.
+   - Still depends on the model emitting math the wrappers can recognize;
+     pathological cases (math in Cyrillic-mixed prose) will still slip.
 
-3. **Web verify / math-audit passes** were added (commit 2e02c0f, see
-   `src/lib/docPlanner.ts` lines ~205-280) but I never confirmed they actually
-   fire end-to-end in the browser bundle. User says results haven't changed.
-   - Quick test: load live site, open DevTools, watch network calls to
-     `token-plan-sgp.xiaomimimo.com`. For each page there should be:
-     pass 1 (translate) + pass 2 (verify, only if blocked) + pass 3 (audit,
-     only if math gaps).
+3. ~~**Figures not transferring**~~ — **partially addressed (HEAD)**:
+   - Coverage filter loosened from `< 0.7` to `< 0.95` (lower bound also
+     reduced to `> 0.005`) so near-full-page raster figures and small
+     icons are retained.
+   - Added fallback: when pdfjs finds NO embedded raster on a page BUT
+     the translation references a figure (`(см. рис.)`, `![]()`, or
+     `Figure N`), we attach the full-page render as a figure block.
+     Rescues vector-only TikZ/matplotlib-PDF figures.
+   - `parseMarkdownToBlocks` now also recognizes `![alt](url)` lines as
+     figure blocks (for completeness with model-emitted markdown images).
+   - Open: figures still always land at end-of-page in the DOCX, not at
+     their natural Y position. Inline placement needs the model to emit
+     ordered figure markers we can substitute, or layout-aware insertion
+     based on extracted image Y coords.
 
 ---
 
