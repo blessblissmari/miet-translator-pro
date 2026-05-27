@@ -77,6 +77,60 @@ CRITICAL rules:
 - Do NOT translate identifiers, units, code, or proper names (BJT, MOSFET, V_T, …).
 `;
 
+const VERIFY_PROMPT = `Ты — рецензент перевода. Получишь изображение исходной страницы и черновой Russian Markdown.
+Проверь:
+1. Все ли формулы со страницы попали в Markdown?
+2. Все ли подвопросы/пункты (а)(б)(в)(г)(д)(е) присутствуют?
+3. Нет ли пропущенных абзацев?
+
+ВЕРНИ строго JSON: {"ok":boolean,"gaps":["короткое описание пропуска", ...]}.
+ok=true когда покрытие полное.`;
+
+const MATH_AUDIT_PROMPT = `Ты — строгий проверяющий математических формул.
+Получишь изображение страницы и черновой Markdown.
+Найди ВСЕ математические выражения на странице, которые в Markdown НЕ обёрнуты в \$...\$ или \$\$...\$\$
+(например: y[n] = ..., x_1[n], H{x[n]}, \\delta[n-2], \\mathcal{H}, max(...), и подобные).
+
+ВЕРНИ строго JSON: {"ok":boolean,"unwrapped":["цитата неправильного фрагмента", ...]}.
+ok=true когда все формулы правильно обёрнуты.`;
+
+async function verifyPage(
+  page: { imageDataUrl: string; index: number },
+  draft: string,
+  opts: PlannerOpts,
+  prompt: string,
+  fieldKey: "gaps" | "unwrapped",
+): Promise<{ ok: boolean; issues: string[] }> {
+  try {
+    const visionUrl = await downsampleDataUrl(page.imageDataUrl, { maxDim: 1400 });
+    const out = await chat({
+      apiKey: opts.apiKey,
+      model: opts.model,
+      temperature: 0,
+      maxTokens: 1500,
+      signal: opts.signal,
+      messages: [
+        { role: "system", content: prompt },
+        {
+          role: "user",
+          content: [
+            { type: "text", text: `Стр. ${page.index + 1}. Черновой Markdown:\n\n${draft.slice(0, 8000)}` },
+            { type: "image_url", image_url: { url: visionUrl } },
+          ],
+        },
+      ],
+    });
+    const cleaned = stripCodeFences(out);
+    const m = cleaned.match(/\{[\s\S]*\}/);
+    if (!m) return { ok: true, issues: [] };
+    const parsed = JSON.parse(m[0]);
+    const issues = Array.isArray(parsed[fieldKey]) ? parsed[fieldKey].slice(0, 10) : [];
+    return { ok: parsed.ok !== false && issues.length === 0, issues };
+  } catch {
+    return { ok: true, issues: [] };
+  }
+}
+
 /* ─── Per-page translation ─────────────────────── */
 
 async function translateDocPage(
@@ -90,8 +144,7 @@ async function translateDocPage(
   glossary?: Glossary,
 ): Promise<DocBlock[]> {
   const isHandwritten = page.text.replace(/\s+/g, "").length < 30;
-  const VISION_FALLBACK = "nvidia/nemotron-nano-12b-v2-vl:free";
-  const modelOverride = isHandwritten && !opts.visionCapable ? VISION_FALLBACK : undefined;
+  // All MiMo models are vision-capable. Always send
 
   const sysPrompt =
     (isHandwritten
@@ -140,7 +193,7 @@ async function translateDocPage(
 
   const out = await chat({
     apiKey: opts.apiKey,
-    model: modelOverride || opts.model,
+    model: opts.model,
     temperature: 0.2,
     maxTokens: 4096,
     signal: opts.signal,
@@ -149,7 +202,40 @@ async function translateDocPage(
       { role: "user", content: userContent },
     ],
   });
-  const blocks = parseMarkdownToBlocks(wrapOrphanLatex(normalizeMath(normalizeMathDelims(stripCodeFences(out)))));
+  let raw = out;
+  // ─── Pass 2: coverage verify ──────────────────────────────────────────
+  // ─── Pass 3: math audit ──────────────────────────────────────────────
+  if (page.imageDataUrl) {
+    for (const pass of [
+      { prompt: VERIFY_PROMPT, field: "gaps" as const, label: "verify" },
+      { prompt: MATH_AUDIT_PROMPT, field: "unwrapped" as const, label: "math-audit" },
+    ]) {
+      try {
+        const check = await verifyPage({ imageDataUrl: page.imageDataUrl, index: page.index }, raw, opts, pass.prompt, pass.field);
+        if (!check.ok && check.issues.length) {
+          opts.onLog?.(`Стр. ${page.index + 1}: ${pass.label} нашёл ${check.issues.length} проблем — повторный перевод…`);
+          const fixOut = await chat({
+            apiKey: opts.apiKey,
+            model: opts.model,
+            temperature: 0.1,
+            maxTokens: 4096,
+            signal: opts.signal,
+            messages: [
+              { role: "system", content: sysPrompt },
+              { role: "user", content: userContent },
+              { role: "assistant", content: raw },
+              {
+                role: "user",
+                content: `Исправь следующие проблемы и верни ПОЛНУЮ обновлённую версию страницы как Markdown (без комментариев):\n${check.issues.map((s, i) => `${i + 1}. ${s}`).join("\n")}`,
+              },
+            ],
+          });
+          raw = fixOut;
+        }
+      } catch { /* ignore verify errors */ }
+    }
+  }
+  const blocks = parseMarkdownToBlocks(wrapOrphanLatex(normalizeMath(normalizeMathDelims(stripCodeFences(raw)))));
   // Post-pass: substitute any remaining English DSP terms.
   return blocks.map((b) => {
     if (b.type === "para" || b.type === "h1" || b.type === "h2" || b.type === "h3") {

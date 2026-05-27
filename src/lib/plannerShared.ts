@@ -47,14 +47,24 @@ export function normalizeMathDelims(text: string): string {
 }
 
 export function wrapOrphanLatex(text: string): string {
-  // Split on existing $$...$$ and $...$ blocks so we only touch the non-math parts.
+  // Split on existing $$...$$ and $...$ blocks so we only touch non-math parts.
   const parts = text.split(/(\$\$[\s\S]*?\$\$|\$[^$\n]+?\$)/g);
   for (let i = 0; i < parts.length; i += 2) {
     let seg = parts[i];
-    // Wrap whole runs of LaTeX commands like \mathcal{H}\{x[n]\}.
+    // 1. Wrap runs that begin with a backslash command and may contain more
+    //    commands, braces, subscripts, operators (e.g. \\mathcal{H}\\{x[n]\\}).
     seg = seg.replace(
-      /(\\[A-Za-z]+(?:\{[^{}\n]*\})*(?:\\\{[^{}\n]*\\\})*[A-Za-z0-9_^\[\]+\-*/=,. ]*)+/g,
+      /(\\[A-Za-z]+(?:\{[^{}\n]{0,80}\}|\\\{[^{}\n]{0,80}\\\})*(?:[_^]\{?[A-Za-z0-9+\-]{1,12}\}?)*(?:[\s]?[+\-=*/,.]?[\s]?[A-Za-z0-9_^\[\]\\{}+\-*/=,. ]{0,40})*)/g,
       (m) => /[\\{}]/.test(m) && m.trim().length > 1 ? `$${m.trim()}$` : m,
+    );
+    // 2. Wrap inline subscript identifiers like x_1[n], y[n+1], y_4[n], H{x[n]}.
+    seg = seg.replace(
+      /\b([A-Za-zα-ωΑ-Ω])(?:_\{?[A-Za-z0-9+\-]{1,8}\}?)?\s*[\[\{][a-zA-Z0-9_+\-\s]{1,30}[\]\}](?:\s*=\s*[A-Za-z0-9α-ωΑ-Ω\s_+\-*/^.,()\[\]\\{}δ]{2,80})?/g,
+      (m) => {
+        // Skip if it's already inside a code span or markdown link.
+        if (m.length < 4) return m;
+        return `$${m.trim()}$`;
+      },
     );
     parts[i] = seg;
   }
