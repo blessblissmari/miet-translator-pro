@@ -109,3 +109,42 @@ function fixUnitsInMath(md) {
   }
   return cur;
 }
+
+/**
+ * Wrap obvious bare math tokens (e.g. `\\delta`, `\\mathcal{H}`, `\\max`,
+ * `x[n]`, `x_1[n]`, `\\frac`) that appear OUTSIDE of $...$ / $$...$$ /
+ * fenced code into `$...$`. Conservative — only triggers on a small set of
+ * unmistakable math patterns to avoid mangling prose.
+ */
+export function wrapBareMath(md) {
+  const parts = [];
+  const re = /(\$\$[\s\S]*?\$\$|\$[^\$\n]+\$|```[\s\S]*?```|`[^`\n]+`|!\[[^\]]*\]\([^)]*\))/g;
+  let last = 0;
+  let m;
+  while ((m = re.exec(md)) !== null) {
+    parts.push({ kind: "text", s: md.slice(last, m.index) });
+    parts.push({ kind: "skip", s: m[0] });
+    last = re.lastIndex;
+  }
+  parts.push({ kind: "text", s: md.slice(last) });
+
+  // Patterns to wrap when found in "text" segments.
+  // Each pattern matches a single math token (no spaces inside the captured form).
+  const tokenRe = new RegExp([
+    String.raw`\\(?:delta|sum|int|prod|frac|sqrt|alpha|beta|gamma|sigma|omega|pi|infty|mathcal|mathbb|mathrm|cos|sin|tan|log|ln|exp|max|min|lim|hat|tilde|bar|vec|left|right|cdot|times|geq|leq|neq|approx|to|in|forall|exists)(?:\{[^{}\n]*\})?`,
+    String.raw`[A-Za-z]_\{[^{}\n]+\}(?:\[[^\]\n]+\])?`,
+    String.raw`[A-Za-z]_[A-Za-z0-9]\[[^\]\n]+\]`,
+    String.raw`[A-Za-z]\[[a-zA-Z0-9 +\-*/.,]+\]`,
+    String.raw`[A-Za-z]\{[^{}\n]+\}`,
+  ].join("|"), "g");
+
+  const out = parts.map(p => {
+    if (p.kind === "skip") return p.s;
+    return p.s.replace(tokenRe, (mm) => "$" + mm + "$");
+  });
+
+  let res = out.join("");
+  // Merge adjacent `$a$ $b$` into a single math span to reduce $-noise.
+  res = res.replace(/\$([^$\n]+)\$ \$([^$\n]+)\$/g, "$$$1 $2$$");
+  return res;
+}

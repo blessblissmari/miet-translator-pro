@@ -27,7 +27,7 @@ import { extractRasterImages, renderPages } from "./lib/extractImages.mjs";
 import { translatePagesVision } from "./lib/docPlannerVision.mjs";
 import { redrawFigure } from "./lib/redrawFigure.mjs";
 import { polishRu } from "./lib/ruPolish.mjs";
-import { sanitizeLatexMath } from "./lib/mathSanitize.mjs";
+import { sanitizeLatexMath, wrapBareMath } from "./lib/mathSanitize.mjs";
 
 const apiKey = process.env.MIMO_API_KEY;
 if (!apiKey) { console.error("MIMO_API_KEY not set"); process.exit(1); }
@@ -156,7 +156,7 @@ for (const pdfPath of inputs) {
     const fullPages = mdPerPage.map((md, i) => {
       const pn = i + 1;
       const subbed = substituteFigures(md, pn, embedded[pn] || [], rendered[pn], figDir);
-      const polished = polishRu(sanitizeLatexMath(purgeLatexMath(subbed)));
+      const polished = polishRu(sanitizeLatexMath(wrapBareMath(purgeLatexMath(subbed))));
       return polished.trim();
     });
 

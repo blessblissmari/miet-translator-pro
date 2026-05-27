@@ -47,7 +47,10 @@ OUTPUT RULES — read carefully:
 - Lists: "- item" or "1. item".
 - Tables: Markdown pipe tables.
 - Skip page numbers, copyright (e.g. "Copyright © 2010 S. K. Mitra"), running headers/footers.
-- Style: "Homework" → «Домашнее задание»; "Problem N" → «Задача N»; "Solution" → «Решение»; "Part (a)" → «Часть (а)»; "Show that" → «Покажите, что»; "Find" → «Найдите»; "Determine" → «Определите»; "Consider" → «Рассмотрим»; "Hence" → «Следовательно»; "Therefore" → «Поэтому».
+- Style: "Homework" → «Домашнее задание»; "Problem N" → «Задача N»; "Question N" → «Задача N»; "Solution" → «Решение»; "Part (a)" → «Часть (а)»; "Show that" → «Покажите, что»; "Find" → «Найдите»; "Determine" → «Определите»; "Consider" → «Рассмотрим»; "Hence" → «Следовательно»; "Therefore" → «Поэтому».
+- MATH RULES (CRITICAL): EVERY mathematical expression MUST be inside $...$ (inline) or $$...$$ (display) — NO exceptions. This includes single symbols, subscripted variables (x[n], x_1[n], y2[n]), function applications (H{x[n]}, max(x,1), cos(πn), δ[n-2]), brackets, equations. NEVER emit a bare \\delta, \\mathcal, \\max, \\sum, [n], {x[n]} OUTSIDE of $...$ — that breaks the document. If you write a formula in flowing prose, wrap each formula in $...$.
+- INDEXING: use $x_1[n]$, $x_2[n]$, $y_n$ (subscript via _N or _{name}). DO NOT use plain "x1[n]" without $.
+- DELTA/SIGMA: $\\delta[n-2]$, $\\sum_{k=0}^{N-1}$, $\\mathcal{H}$, $\\max$, $\\cos$, $\\sin$, $\\pi$ — always inside math.
 - Keep proper names, identifiers, units, code untranslated (Mitra, Butterworth, MOSFET, MHz, N, ω, etc.).
 - Latin sub-part letters → Cyrillic: (a)→(а), (b)→(б), (c)→(в), (d)→(г), (e)→(д).
 ` + dspGlossaryPrompt();
@@ -141,7 +144,10 @@ export async function translatePageVision({ apiKey, model, pageImagePath, pageNu
     apiKey, model, dataUrl, pageNum, signal,
     guidance: review.gaps.map((g, i) => `${i + 1}. ${g}`).join("\n"),
   });
-  return md2 || md;
+  const final0 = md2 || md;
+  // Pass 3 — math/formula audit: ensure every formula is wrapped in $...$
+  const fixed = await visionMathAudit({ apiKey, model, dataUrl, md: final0, signal });
+  return fixed || final0;
 }
 
 export async function translatePagesVision(pages, opts) {
@@ -157,4 +163,50 @@ export async function translatePagesVision(pages, opts) {
     onProgress?.(done, pages.length);
     return md;
   });
+}
+
+
+const MATH_AUDIT_PROMPT = `Ты — строгий проверяющий математических формул в переводе.
+Получишь: изображение страницы и черновой Russian Markdown перевод.
+
+ЗАДАЧА: вернуть JSON
+{"ok": true|false, "fixed_md": "...полный исправленный Markdown..." | null}
+
+Правила:
+- ok=true, если КАЖДАЯ математическая запись в Markdown уже обёрнута в $...$ или $$...$$
+  И все формулы из изображения присутствуют в Markdown.
+- Иначе ok=false и в fixed_md верни ПОЛНЫЙ исправленный Markdown:
+  * оберни все голые формулы (\\delta, \\mathcal, \\max, x[n], H{x[n]}, δ[n-2], y_1[n] и т.п.) в $...$
+  * добавь пропущенные формулы с правильной обёрткой
+  * сохрани весь обычный текст и markdown-структуру (заголовки, списки, картинки {{FIGURE_N}}, переводы)
+  * НЕ переводи заново, только чини математику и пропуски
+- Только русский язык в тексте. Только JSON в ответе.`;
+
+async function visionMathAudit({ apiKey, model, dataUrl, md, signal }) {
+  try {
+    const out = await chat({
+      apiKey, model, maxTokens: 8000, temperature: 0.05, signal, responseJson: true,
+      messages: [
+        { role: "system", content: MATH_AUDIT_PROMPT },
+        {
+          role: "user",
+          content: [
+            { type: "text", text: `Черновой Markdown:\n\n${md.slice(0, 10000)}` },
+            { type: "image_url", image_url: { url: dataUrl } },
+          ],
+        },
+      ],
+    });
+    const t = stripCodeFences(out).trim();
+    const m = t.match(/\{[\s\S]*\}/);
+    if (!m) return null;
+    const j = JSON.parse(m[0]);
+    if (j.ok) return null;
+    if (typeof j.fixed_md === "string" && j.fixed_md.length > md.length * 0.4) {
+      return applyGlossaryPost(normalizeMathDelims(j.fixed_md));
+    }
+    return null;
+  } catch {
+    return null;
+  }
 }
