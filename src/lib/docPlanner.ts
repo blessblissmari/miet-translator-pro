@@ -158,53 +158,41 @@ async function translateDocPage(
   opts: PlannerOpts,
   glossary?: Glossary,
 ): Promise<DocBlock[]> {
-  const isHandwritten = page.text.replace(/\s+/g, "").length < 30;
-  // All MiMo models are vision-capable. Always send
+  // Strategy: page IMAGE is always the primary OCR input.
+  // pdfjs-extracted text is passed as a supplementary hint (may help on
+  // dense printed pages, ignored when the image disagrees).
 
   const sysPrompt =
-    (isHandwritten
-      ? VISION_OCR_PROMPT(TARGET_LANG)
-      : DOC_TRANSLATE_PROMPT(TARGET_LANG)) +
+    VISION_OCR_PROMPT(TARGET_LANG) +
     dspGlossaryPrompt() +
     (glossary && glossary.size ? glossaryPrompt(glossary) : "");
 
-  const visionUrl =
-    isHandwritten || (opts.visionCapable && page.imageDataUrl)
-      ? await downsampleDataUrl(page.imageDataUrl, {
-          maxDim: isHandwritten ? 1800 : 1400,
-        })
-      : "";
+  const visionUrl = page.imageDataUrl
+    ? await downsampleDataUrl(page.imageDataUrl, { maxDim: 1800 })
+    : "";
+
+  const hint = page.text.replace(/\s+/g, " ").trim().slice(0, 8000);
+  const hasHint = hint.length > 20;
+
+  const intro = `Page ${page.index + 1}. Read the attached image as your PRIMARY source — this is the authoritative version of the page (printed, handwritten, mixed, or scanned). Transcribe everything you see and translate to ${TARGET_LANG} as Markdown per the rules.`;
+
+  const hintBlock = hasHint
+    ? `\n\n---\nMachine-extracted text hint (from pdfjs, may have OCR errors, missing handwriting/figures, or wrong reading order — use ONLY as a tie-breaker, trust the image when they disagree):\n\n${hint}`
+    : "";
 
   const userContent: Array<
     | { type: "text"; text: string }
     | { type: "image_url"; image_url: { url: string } }
-  > = isHandwritten
-    ? [
-        {
-          type: "text",
-          text: `Page ${page.index + 1}. The page may contain handwriting, sketches, or scanned printed text. Carefully transcribe everything you can see, then translate to ${TARGET_LANG} as Markdown per the rules.`,
-        },
-        { type: "image_url", image_url: { url: visionUrl } },
-      ]
-    : [
-        {
-          type: "text",
-          text: `Translate the following page (page ${page.index + 1}) into ${TARGET_LANG}. Use Markdown as instructed.\n\n${page.text.slice(0, 12000)}`,
-        },
-        ...(opts.visionCapable && visionUrl
-          ? [
-              {
-                type: "image_url" as const,
-                image_url: { url: visionUrl },
-              },
-            ]
-          : []),
-      ];
+  > = [
+    { type: "text", text: intro + hintBlock },
+    ...(visionUrl
+      ? [{ type: "image_url" as const, image_url: { url: visionUrl } }]
+      : []),
+  ];
 
-  if (isHandwritten)
-    opts.onLog?.(
-      `Стр. ${page.index + 1}: режим vision-OCR (рукопись/скан)`,
-    );
+  opts.onLog?.(
+    `Стр. ${page.index + 1}: vision-OCR${hasHint ? " + pdfjs hint" : ""}${visionUrl ? "" : " (нет изображения)"}`,
+  );
 
   const out = await chat({
     apiKey: opts.apiKey,
