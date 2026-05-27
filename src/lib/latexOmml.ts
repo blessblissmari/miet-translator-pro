@@ -78,6 +78,60 @@ const KNOWN_CMDS = [
 
 const KNOWN_CMD_SET = new Set(KNOWN_CMDS);
 
+// Greek letters and a few common math symbols, used to repair temml's
+// unknown-macro fallback (`<mtext>\delta</mtext>`) at OMML-emit time.
+const COMMAND_GLYPHS: Record<string, string> = {
+  alpha: "α", beta: "β", gamma: "γ", delta: "δ", epsilon: "ε", varepsilon: "ε",
+  zeta: "ζ", eta: "η", theta: "θ", vartheta: "ϑ", iota: "ι", kappa: "κ",
+  lambda: "λ", mu: "μ", nu: "ν", xi: "ξ", omicron: "ο", pi: "π", varpi: "ϖ",
+  rho: "ρ", varrho: "ϱ", sigma: "σ", varsigma: "ς", tau: "τ", upsilon: "υ",
+  phi: "ϕ", varphi: "φ", chi: "χ", psi: "ψ", omega: "ω",
+  Alpha: "Α", Beta: "Β", Gamma: "Γ", Delta: "Δ", Epsilon: "Ε", Zeta: "Ζ",
+  Eta: "Η", Theta: "Θ", Iota: "Ι", Kappa: "Κ", Lambda: "Λ", Mu: "Μ",
+  Nu: "Ν", Xi: "Ξ", Omicron: "Ο", Pi: "Π", Rho: "Ρ", Sigma: "Σ",
+  Tau: "Τ", Upsilon: "Υ", Phi: "Φ", Chi: "Χ", Psi: "Ψ", Omega: "Ω",
+  infty: "∞", partial: "∂", nabla: "∇", forall: "∀", exists: "∃",
+  in: "∈", notin: "∉", subset: "⊂", supset: "⊃", cup: "∪", cap: "∩",
+  emptyset: "∅", neq: "≠", leq: "≤", geq: "≥", approx: "≈",
+  pm: "±", mp: "∓", times: "×", cdot: "·", to: "→", rightarrow: "→",
+  leftarrow: "←", Rightarrow: "⇒", Leftarrow: "⇐",
+  sum: "∑", prod: "∏", int: "∫",
+};
+// Operator names that should pass through as plain text (no Unicode glyph),
+// but still must be split from any trailing letters.
+const OPERATOR_NAMES = new Set([
+  "max", "min", "sup", "inf", "lim", "sin", "cos", "tan", "cot", "sec", "csc",
+  "arcsin", "arccos", "arctan", "sinh", "cosh", "tanh", "log", "ln", "lg",
+  "exp", "det", "deg", "dim", "ker", "mod", "gcd", "arg", "Re", "Im",
+]);
+
+/** Repair temml's unknown-macro fallback: turn `\delta` (one mtext run) into
+ *  the proper Unicode glyph, optionally followed by separate runs for any
+ *  remaining letters (e.g. `\pin` → "π" + "n"). Returns an OMML run string,
+ *  or `null` if we can't rescue it. */
+function resolveUnknownCmd(text: string): string | null {
+  const m = /^\\([A-Za-z]+)$/.exec(text);
+  if (!m) return null;
+  const name = m[1];
+  // Try longest prefix that is mappable.
+  for (let len = name.length; len >= 2; len--) {
+    const head = name.slice(0, len);
+    const tail = name.slice(len);
+    const glyph = COMMAND_GLYPHS[head];
+    const isOp = OPERATOR_NAMES.has(head);
+    if (!glyph && !isOp) continue;
+    const headRun = glyph
+      ? `<m:r><m:t xml:space="preserve">${escapeXml(glyph)}</m:t></m:r>`
+      : `<m:r><m:t xml:space="preserve">${escapeXml(head)}</m:t></m:r>`;
+    if (!tail) return headRun;
+    const tailRuns = [...tail]
+      .map((c) => `<m:r><m:t xml:space="preserve">${escapeXml(c)}</m:t></m:r>`)
+      .join("");
+    return headRun + tailRuns;
+  }
+  return null;
+}
+
 // Unicode maps for font-style commands applied to single letters.
 const MATHCAL_MAP: Record<string, string> = {
   A:"𝒜",B:"ℬ",C:"𝒞",D:"𝒟",E:"ℰ",F:"ℱ",G:"𝒢",H:"ℋ",I:"ℐ",J:"𝒥",
@@ -217,6 +271,12 @@ function elemToOmml(el: Element): string {
     case "ms": {
       const t = (el.textContent || "").trim();
       if (!t) return "";
+      // temml emits unknown macros as <mtext>\name</mtext>. Try to rescue
+      // before dumping the raw backslash into the document.
+      if (t.startsWith("\\")) {
+        const rescued = resolveUnknownCmd(t);
+        if (rescued) return rescued;
+      }
       return `<m:r><m:t xml:space="preserve">${escapeXml(t)}</m:t></m:r>`;
     }
     case "mspace":
