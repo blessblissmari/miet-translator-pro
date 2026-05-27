@@ -110,7 +110,6 @@ type Slide = {
   bg?: string;
 };
 
-const EMU = 914400; // per inch
 
 function PptxPreview({ blob }: { blob: Blob }) {
   const [slides, setSlides] = useState<Slide[] | null>(null);
