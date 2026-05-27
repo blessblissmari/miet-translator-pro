@@ -316,3 +316,54 @@ select.q-kind.kind-document    { color: #a78bfa; border-color: #a78bfa; }
   font-size: 12px; color: var(--yellow); border-color: var(--yellow);
 }
 .q-retry:hover { background: rgba(245,158,11,0.1); }
+
+/* ──────── Word-page DOCX preview ──────── */
+.docx-pane { background: #d1d5db; padding: 18px 14px; }
+.word-page {
+  width: 100%;
+  max-width: 794px; /* A4 width @ 96dpi */
+  background: white;
+  color: #111;
+  padding: 72px 72px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+  border-radius: 2px;
+  font-family: "Times New Roman", Times, serif;
+  font-size: 12pt;
+  line-height: 1.45;
+}
+.word-page h1, .word-page h2, .word-page h3, .word-page h4 {
+  font-family: "Calibri", "Arial", sans-serif;
+  color: #2E74B5;
+  margin: 0.8em 0 0.4em;
+  line-height: 1.2;
+}
+.word-page h1 { font-size: 18pt; }
+.word-page h2 { font-size: 14pt; }
+.word-page h3 { font-size: 12pt; }
+.word-page p { margin: 0 0 0.6em; }
+.word-page ul, .word-page ol { margin: 0.4em 0 0.6em 1.5em; }
+.word-page img { max-width: 100%; height: auto; display: block; margin: 0.6em 0; }
+.word-page table { border-collapse: collapse; margin: 0.6em 0; }
+.word-page table td, .word-page table th { border: 1px solid #888; padding: 4px 8px; }
+.word-page blockquote { border-left: 3px solid #ccc; margin: 0.6em 0; padding-left: 12px; color: #555; }
+.word-page a { color: #0563C1; text-decoration: underline; }
+
+/* ──────── PPT slide preview ──────── */
+.pptx-pane { background: #2c2c34; padding: 18px 14px; gap: 24px; }
+.ppt-slide-wrap { width: 100%; max-width: 880px; position: relative; }
+.ppt-slide-num {
+  position: absolute; left: -34px; top: 6px;
+  color: #aaa; font-size: 11px; font-family: ui-monospace, monospace;
+}
+.ppt-slide {
+  width: 100%; position: relative;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.45);
+  overflow: hidden;
+  container-type: size;
+  color: #1f1f1f;
+  font-family: "Calibri", "Arial", sans-serif;
+}
+.ppt-text { font-size: 3.3cqh; line-height: 1.18; padding: 0.2cqh; word-wrap: break-word; }
+@media (max-width: 700px) {
+  .ppt-slide-num { left: 4px; top: 4px; background: rgba(0,0,0,0.4); padding: 2px 4px; border-radius: 3px; }
+}
