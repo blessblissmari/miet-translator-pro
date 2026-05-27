@@ -7,6 +7,14 @@ import temml from "temml";
  */
 export function latexToOmml(latex: string, display = false): string {
   const cleanLatex = preprocessLatex(latex);
+  if (typeof window !== "undefined") {
+    try {
+      const bytes = (s: string) => Array.from(s).map(c => c.codePointAt(0)!.toString(16)).join(" ");
+      console.log("[latexToOmml] raw:", JSON.stringify(latex), "bytes:", bytes(latex));
+      if (cleanLatex !== latex)
+        console.log("[latexToOmml] cleaned:", JSON.stringify(cleanLatex), "bytes:", bytes(cleanLatex));
+    } catch { /* noop */ }
+  }
   let mathml: string;
   try {
     mathml = temml.renderToString(cleanLatex, { displayMode: display, throwOnError: false });
