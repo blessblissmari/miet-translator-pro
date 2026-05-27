@@ -3,26 +3,12 @@ import {
   validateApiKey,
   HAS_BUILTIN_KEYS,
 } from "../lib/mimo";
-import { HAS_BUILTIN_MINERU } from "../lib/mineru";
 
 interface SettingsPanelProps {
   apiKey: string;
   overrideKey: string;
   hasKey: boolean;
   onKeyChange: (key: string) => void;
-  // MinerU integration
-  mineruEnabled: boolean;
-  mineruMode: "cloud" | "local";
-  mineruToken: string;
-  mineruModelVersion: "pipeline" | "vlm" | "auto";
-  mineruLocalEndpoint: string;
-  mineruLocalBackend: "pipeline" | "vlm-transformers";
-  onMineruEnabledChange: (v: boolean) => void;
-  onMineruModeChange: (v: "cloud" | "local") => void;
-  onMineruTokenChange: (v: string) => void;
-  onMineruModelVersionChange: (v: "pipeline" | "vlm" | "auto") => void;
-  onMineruLocalEndpointChange: (v: string) => void;
-  onMineruLocalBackendChange: (v: "pipeline" | "vlm-transformers") => void;
 }
 
 export function SettingsPanel({
@@ -30,41 +16,7 @@ export function SettingsPanel({
   overrideKey,
   hasKey,
   onKeyChange,
-  mineruEnabled,
-  mineruMode,
-  mineruToken,
-  mineruModelVersion,
-  mineruLocalEndpoint,
-  mineruLocalBackend,
-  onMineruEnabledChange,
-  onMineruModeChange,
-  onMineruTokenChange,
-  onMineruModelVersionChange,
-  onMineruLocalEndpointChange,
-  onMineruLocalBackendChange,
 }: SettingsPanelProps) {
-  const [localHealth, setLocalHealth] = useState<
-    null | { ok: true; version?: string; backend?: string } | { ok: false; error: string }
-  >(null);
-  const [checking, setChecking] = useState(false);
-
-  async function checkLocal() {
-    setChecking(true);
-    setLocalHealth(null);
-    try {
-      const { checkLocalBridge } = await import("../lib/mineru");
-      const r = await checkLocalBridge(mineruLocalEndpoint);
-      if (r && r.ok) {
-        setLocalHealth({ ok: true, version: r.mineru_version, backend: r.backend });
-      } else {
-        setLocalHealth({ ok: false, error: "Сервер не отвечает или CORS блокирует запрос" });
-      }
-    } catch (e) {
-      setLocalHealth({ ok: false, error: (e as Error).message });
-    } finally {
-      setChecking(false);
-    }
-  }
   const [keyCheck, setKeyCheck] = useState<{
     status: "idle" | "checking" | "ok" | "fail";
     msg?: string;
@@ -139,133 +91,6 @@ export function SettingsPanel({
       <p className="muted small" style={{ marginTop: 8 }}>
         Модель перевода: <strong>MiMo V2.5</strong> · vision/OCR. Автоматически смотрит на каждую страницу как картинку — формулы и графики переводятся «глазами», а не текстом.
       </p>
-
-      {/* ── MinerU (optional alternative PDF parser) ── */}
-      <div className="mineru-row" style={{ marginTop: 16, paddingTop: 16, borderTop: "1px solid var(--border, #2a2a2a)" }}>
-        <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <input
-            type="checkbox"
-            checked={mineruEnabled}
-            onChange={(e) => onMineruEnabledChange(e.target.checked)}
-          />
-          <strong>Использовать MinerU как парсер</strong>
-        </label>
-
-        <p className="muted small">
-          MinerU — облачный парсер от OpenDataLab. Лучше встроенного pdf.js на
-          сканированных PDF, формулах и многоколоночной вёрстке. Получи токен на{" "}
-          <a href="https://mineru.net" target="_blank" rel="noreferrer">
-            mineru.net
-          </a>
-          .
-        </p>
-        {mineruEnabled && (
-          <>
-            <div style={{ display: "flex", gap: 12, alignItems: "center", marginTop: 8 }}>
-              <span>Режим:</span>
-              <label style={{ display: "inline-flex", gap: 4, alignItems: "center" }}>
-                <input
-                  type="radio"
-                  name="mineru-mode"
-                  value="local"
-                  checked={mineruMode === "local"}
-                  onChange={() => onMineruModeChange("local")}
-                />
-                Локальный
-              </label>
-              <label style={{ display: "inline-flex", gap: 4, alignItems: "center" }}>
-                <input
-                  type="radio"
-                  name="mineru-mode"
-                  value="cloud"
-                  checked={mineruMode === "cloud"}
-                  onChange={() => onMineruModeChange("cloud")}
-                />
-                Облачный
-              </label>
-            </div>
-
-            {mineruMode === "local" ? (
-              <>
-                <p className="muted small" style={{ marginTop: 8 }}>
-                  Запусти бэкенд у себя:{" "}
-                  <code>pip install -r server/requirements.txt &amp;&amp; python server/main.py</code>
-                  . Файлы не покидают твою машину.
-                </p>
-                <label>
-                  <span>Endpoint</span>
-                  <input
-                    type="url"
-                    value={mineruLocalEndpoint}
-                    onChange={(e) => onMineruLocalEndpointChange(e.target.value)}
-                    placeholder="http://localhost:8765"
-                    autoComplete="off"
-                    spellCheck={false}
-                  />
-                </label>
-                <label>
-                  Backend{" "}
-                  <select
-                    value={mineruLocalBackend}
-                    onChange={(e) =>
-                      onMineruLocalBackendChange(e.target.value as "pipeline" | "vlm-transformers")
-                    }
-                  >
-                    <option value="pipeline">pipeline (CPU)</option>
-                    <option value="vlm-transformers">vlm-transformers (GPU, лучше)</option>
-                  </select>
-                </label>
-                <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 8 }}>
-                  <button type="button" className="ghost" onClick={checkLocal} disabled={checking}>
-                    {checking ? "Проверяю…" : "Проверить соединение"}
-                  </button>
-                  {localHealth?.ok === true && (
-                    <span style={{ color: "var(--ok, #2ecc71)" }}>
-                      ✓ {localHealth.version || "ok"}
-                      {localHealth.backend ? ` · ${localHealth.backend}` : ""}
-                    </span>
-                  )}
-                  {localHealth?.ok === false && (
-                    <span style={{ color: "var(--err, #e74c3c)" }}>✗ {localHealth.error}</span>
-                  )}
-                </div>
-              </>
-            ) : (
-              <>
-                <label>
-                  <span>MinerU API token</span>
-                  <input
-                    type="password"
-                    value={mineruToken}
-                    onChange={(e) => onMineruTokenChange(e.target.value)}
-                    placeholder="eyJ…"
-                    autoComplete="off"
-                    spellCheck={false}
-                  />
-                </label>
-                {HAS_BUILTIN_MINERU && !mineruToken && (
-                  <p className="muted small">
-                    ✓ Встроенный токен доступен. Поле выше — переопределить своим (необязательно).
-                  </p>
-                )}
-                <label>
-                  Модель MinerU{" "}
-                  <select
-                    value={mineruModelVersion}
-                    onChange={(e) =>
-                      onMineruModelVersionChange(e.target.value as "pipeline" | "vlm" | "auto")
-                    }
-                  >
-                    <option value="vlm">vlm (лучшее качество, медленнее)</option>
-                    <option value="pipeline">pipeline (быстро)</option>
-                    <option value="auto">auto</option>
-                  </select>
-                </label>
-              </>
-            )}
-          </>
-        )}
-      </div>
     </section>
   );
 }

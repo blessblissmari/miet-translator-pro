@@ -2,22 +2,11 @@ import JSZip from "jszip";
 import type { ExtractedDoc, ExtractedPage } from "./types";
 import { extractPdf } from "./pdfExtract";
 import { downsampleDataUrl } from "./imageOps";
-import {
-  extractWithMineru,
-  extractWithMineruLocal,
-  type MineruOptions,
-  type MineruLocalOptions,
-} from "./mineru";
 
 export type InputKind = "pdf" | "pptx" | "docx" | "image" | "text" | "unknown";
 
-/** Optional config passed through to specific extractors. */
-export interface ExtractOptions {
-  /** Cloud MinerU (mineru.net) — token required. */
-  mineru?: MineruOptions;
-  /** Local MinerU bridge — runs on user's machine via server/main.py. */
-  mineruLocal?: MineruLocalOptions;
-}
+/** Reserved for future extractor options. MinerU was removed. */
+export type ExtractOptions = Record<string, never>;
 
 const PDF_EXT = /\.pdf$/i;
 const PPTX_EXT = /\.pptx$/i;
@@ -61,38 +50,9 @@ export async function extractAny(
   blob: Blob,
   filename: string,
   onProgress?: (page: number, total: number) => void,
-  options?: ExtractOptions,
+  _options?: ExtractOptions,
 ): Promise<ExtractedDoc> {
   const k = classifyInput(filename);
-
-  // MinerU paths — currently support PDF, DOCX, PPTX, images. Text falls back
-  // to the local extractor. Local bridge takes precedence over cloud if both
-  // are provided.
-  const mineruable = k === "pdf" || k === "docx" || k === "pptx" || k === "image";
-  if (options?.mineruLocal && mineruable) {
-    const localOpts: MineruLocalOptions = {
-      ...options.mineruLocal,
-      onProgress: (msg) => {
-        options.mineruLocal?.onProgress?.(msg);
-        onProgress?.(0, 1);
-      },
-    };
-    return extractWithMineruLocal(blob, filename, localOpts);
-  }
-  if (options?.mineru && mineruable) {
-    const mineruOpts: MineruOptions = {
-      ...options.mineru,
-      onProgress: (msg) => {
-        options.mineru?.onProgress?.(msg);
-        onProgress?.(0, 1);
-      },
-    };
-    try {
-      return extractWithMineru(blob, filename, mineruOpts);
-    } catch {
-      throw new Error("Failed to extract with MinerU");
-    }
-  }
 
   switch (k) {
     case "pdf": {

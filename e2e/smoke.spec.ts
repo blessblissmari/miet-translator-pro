@@ -15,9 +15,4 @@ test.describe("MIET Translator Pro — smoke", () => {
     // mimo- placeholder hints that the input is present.
     await expect(page.getByPlaceholder(/mimo-/i)).toBeVisible();
   });
-
-  test("MinerU parser toggle is rendered", async ({ page }) => {
-    await page.goto("/");
-    await expect(page.getByText(/MinerU/i).first()).toBeVisible();
-  });
 });

@@ -232,6 +232,19 @@ export function wrapOrphanLatex(text: string): string {
   // touches `$$...$$` display blocks.
   working = working.replace(/\$([^$\n]+)\$\s*\$([^$\n]+)\$/g, (_m, a, b) => `$${a} ${b}$`);
 
+  // Absorb a trailing escaped-brace argument into a preceding math span.
+  // Pattern: `$X$ \{Y\}` → `$X \{Y\}$`. Common in `\mathcal{H}\{x[n]\}` after
+  // upstream normalizers wrapped only the `\mathcal{H}` part. Loop because
+  // chains like `\f{a}\{b\}\(c\)` should fully absorb.
+  for (let pass = 0; pass < 4; pass++) {
+    const next = working.replace(
+      /\$([^$\n]+?)\$(\s*)(\\[{(\[](?:[^$\n\\]|\\(?![{}()\[\]]))*?\\[})\]])/g,
+      (_m, math, ws, esc) => `$${math}${ws}${esc}$`,
+    );
+    if (next === working) break;
+    working = next;
+  }
+
   return working;
 }
 

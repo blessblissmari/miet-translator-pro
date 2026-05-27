@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { wrapOrphanLatex, sanitizeHtml } from "../lib/plannerShared";
+import { normalizeMath } from "../lib/mathNormalize";
 
 describe("wrapOrphanLatex", () => {
   it("wraps a whole math-shaped line as a single span", () => {
@@ -87,5 +88,18 @@ describe("sanitizeHtml", () => {
 
   it("converts <br> to newline outside math", () => {
     expect(sanitizeHtml("line1<br>line2")).toBe("line1\nline2");
+  });
+});
+
+describe("escaped-brace continuation", () => {
+  it("normalizeMath wraps \\mathcal{H}\\{x[n]\\} as one span", () => {
+    const out = normalizeMath("Рассмотрим систему y[n] = \\mathcal{H}\\{x[n]\\} = x[n+1].");
+    expect(out).toContain("$\\mathcal{H}\\{x[n]\\}$");
+    expect(out).not.toMatch(/\$\\mathcal\{H\}\$\\\{/);
+  });
+  it("wrapOrphanLatex absorbs trailing \\{...\\} into preceding $...$", () => {
+    const out = wrapOrphanLatex("$\\mathcal{H}$\\{x_1[n]\\}");
+    expect(out).toMatch(/\$\\mathcal\{H\}\s*\\\{x_1\[n\]\\\}\$/);
+    expect(out).not.toMatch(/\$\s*\\\{x_1/);
   });
 });

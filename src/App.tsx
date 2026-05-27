@@ -5,7 +5,6 @@ import { planSlides, planDoc } from "./lib/planner";
 import { buildPptx } from "./lib/pptxBuild";
 import { buildDocx } from "./lib/docxBuild";
 import { FREE_MODELS, DEFAULT_MODEL, DEFAULT_API_KEY } from "./lib/mimo";
-import { DEFAULT_MINERU_TOKEN } from "./lib/mineru";
 import { expandInputs, type IntakeFile } from "./lib/intake";
 import { extractAny, suggestKind } from "./lib/extractAny";
 import { SlidesPreview, DocPreview } from "./components/Preview";
@@ -61,24 +60,6 @@ export default function App() {
   }, []);
 
   const [showSettings, setShowSettings] = useState(!apiKey);
-
-  // MinerU (alternative PDF parser) — opt-in. Two modes:
-  //   - "local": talks to the FastAPI bridge in server/main.py (recommended)
-  //   - "cloud": uses mineru.net's API, requires a token
-  const [mineruEnabled, setMineruEnabled] = useLocalStorage<boolean>("mineru_enabled", false);
-  const [mineruMode, setMineruMode] = useLocalStorage<"cloud" | "local">("mineru_mode", "local");
-  const [mineruTokenOverride, setMineruToken] = useLocalStorage<string>("mineru_token", "");
-  const mineruToken = mineruTokenOverride.trim() || DEFAULT_MINERU_TOKEN;
-  const [mineruModelVersion, setMineruModelVersion] = useLocalStorage<
-    "pipeline" | "vlm" | "auto"
-  >("mineru_model_version", "vlm");
-  const [mineruLocalEndpoint, setMineruLocalEndpoint] = useLocalStorage<string>(
-    "mineru_local_endpoint",
-    "http://localhost:8765",
-  );
-  const [mineruLocalBackend, setMineruLocalBackend] = useLocalStorage<
-    "pipeline" | "vlm-transformers"
-  >("mineru_local_backend", "pipeline");
 
   /* ─── Queue state ──────────────────────── */
   const [unsorted, setUnsorted] = useState<UnsortedItem[]>([]);
@@ -156,34 +137,11 @@ export default function App() {
         elapsedMs: undefined,
         error: undefined,
       });
-      // Build MinerU options based on selected mode
-      let mineruExtractOpts: Parameters<typeof extractAny>[3] = undefined;
-      if (mineruEnabled) {
-        if (mineruMode === "local" && mineruLocalEndpoint) {
-          mineruExtractOpts = {
-            mineruLocal: {
-              endpoint: mineruLocalEndpoint,
-              backend: mineruLocalBackend,
-              onProgress: (msg) => updateItem(it.id, { message: msg }),
-              signal,
-            },
-          };
-        } else if (mineruMode === "cloud" && mineruToken) {
-          mineruExtractOpts = {
-            mineru: {
-              token: mineruToken,
-              modelVersion: mineruModelVersion,
-              onProgress: (msg) => updateItem(it.id, { message: msg }),
-              signal,
-            },
-          };
-        }
-      }
       const extracted = await extractAny(
         it.blob,
         it.path.split("/").pop() || it.path,
         (p, t) => updateItem(it.id, { progress: { done: p, total: t } }),
-        mineruExtractOpts,
+        undefined,
       );
       if (signal?.aborted) throw new Error("aborted");
 
@@ -434,18 +392,6 @@ export default function App() {
             overrideKey={overrideKey}
             hasKey={hasKey}
             onKeyChange={setOverrideKey}
-            mineruEnabled={mineruEnabled}
-            mineruMode={mineruMode}
-            mineruToken={mineruTokenOverride}
-            mineruModelVersion={mineruModelVersion}
-            mineruLocalEndpoint={mineruLocalEndpoint}
-            mineruLocalBackend={mineruLocalBackend}
-            onMineruEnabledChange={setMineruEnabled}
-            onMineruModeChange={setMineruMode}
-            onMineruTokenChange={setMineruToken}
-            onMineruModelVersionChange={setMineruModelVersion}
-            onMineruLocalEndpointChange={setMineruLocalEndpoint}
-            onMineruLocalBackendChange={setMineruLocalBackend}
           />
         )}
 

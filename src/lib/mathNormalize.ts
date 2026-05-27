@@ -113,6 +113,33 @@ function wrapOrphans(t: string): string {
         e = close + 1;
         continue;
       }
+      // Escaped-brace argument: \{ ... \}, \( ... \), \[ ... \]
+      // Common in set notation and operator arguments: \mathcal{H}\{x[n]\}.
+      if (c === "\\" && e + 1 < t.length) {
+        const next = t[e + 1];
+        if (next === "{" || next === "(" || next === "[") {
+          const closeCh = next === "{" ? "}" : next === "(" ? ")" : "]";
+          // Find matching \} / \) / \] tracking nested escape pairs.
+          let depth = 1;
+          let scan = e + 2;
+          while (scan < t.length) {
+            if (t[scan] === "\\" && t[scan + 1] === next) { depth++; scan += 2; continue; }
+            if (t[scan] === "\\" && t[scan + 1] === closeCh) {
+              depth--;
+              scan += 2;
+              if (depth === 0) break;
+              continue;
+            }
+            scan++;
+          }
+          if (depth === 0) {
+            e = scan;
+            continue;
+          }
+          // No matching close — stop consumption here.
+          break;
+        }
+      }
       if (c === "_" || c === "^") {
         e++;
         if (e < t.length && (t[e] === "{" || t[e] === "[")) {
