@@ -110,6 +110,11 @@ export function preprocessLatex(latex: string): string {
   if (!latex) return latex;
   let s = latex;
 
+  // 0) Strip invisible / formatting characters that the model sometimes
+  //    sprinkles inside LaTeX commands and that regular `\s` doesn't match.
+  //    U+200B..U+200F, U+2028, U+2029, U+FEFF.
+  s = s.replace(/[\u200B-\u200F\u2028\u2029\uFEFF]/g, "");
+
   // 1) Repair `\\` immediately followed by an alpha that starts a known macro.
   //    `\\mathcal{H}` (from JSON over-escape or model confusion) → `\mathcal{H}`.
   //    Only do this when the resulting `\name` is a known command — otherwise
