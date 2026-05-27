@@ -44,6 +44,7 @@ STYLE rules:
   - "Show that" → «Покажите, что»
   - "Find" → «Найдите»
 - Do NOT translate code, identifiers, variable names, units, or proper names (Ohm, Faraday, MOSFET, etc.).
+- **Use ONLY Cyrillic letters and standard Latin/digits inside Russian prose. NEVER emit Chinese, Japanese, or Korean characters (no 记忆, 系统, 输入, 输出, etc.). If you don't know the Russian term, use the English original — never a CJK character.** Common offenders: memoryless → «без памяти» (NOT «без 记忆ной»); memory → «память»; system → «система»; input → «вход»; output → «выход»; impulse response → «импульсная характе
 - Preserve abbreviations: BJT, MOSFET, DC, AC, SI, etc.
 - Translate the meaning, not word-by-word. Output must read as if originally written by a Russian engineering professor.
 

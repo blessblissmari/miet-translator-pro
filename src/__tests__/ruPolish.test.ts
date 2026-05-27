@@ -25,3 +25,19 @@ describe("polishRu", () => {
     expect(polishRu("низкочастотный фильтр Баттерворта")).toContain("фильтр нижних частот");
   });
 });
+
+import { polishRu as polishRu2 } from "../lib/ruPolish";
+
+describe("CJK scrubbing", () => {
+  it("repairs CJK morphemes in russian prose", () => {
+    const out = polishRu2("система без 记忆ной (нем记忆ной)");
+    expect(out).not.toMatch(/[\u4e00-\u9fff]/);
+    expect(out).toContain("памят");
+  });
+  it("drops unknown CJK runs entirely", () => {
+    expect(polishRu2("текст 测试 ещё текст")).not.toMatch(/[\u4e00-\u9fff]/);
+  });
+  it("leaves clean text alone", () => {
+    expect(polishRu2("обычный русский текст")).toBe("обычный русский текст");
+  });
+});

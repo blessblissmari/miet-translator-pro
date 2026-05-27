@@ -111,9 +111,36 @@ function dropBoilerplate(s: string): string {
   return s.split("\n").filter((line: string) => !BOILERPLATE.some(re => re.test(line.trim()))).join("\n");
 }
 
+/** Strip Chinese / Japanese / Korean characters that MiMo (Xiaomi) occasionally
+ *  leaks into Russian prose (e.g. `без 记忆ной` ← `memory`). Map a few common
+ *  technical morphemes to Russian roots; for anything we don't recognise, drop
+ *  the CJK run entirely so
+ */
+function scrubCJK(s: string): string {
+  if (!s) return s;
+  const CJK_RUN = /[\u3040-\u30ff\u3100-\u312f\u3400-\u4dbf\u4e00-\u9fff\uac00-\ud7af\uff00-\uffef]+/g;
+  const MAP: Record<string, string> = {
+    "记忆": "памят",
+    "系统": "систем",
+    "输入": "вход",
+    "输出": "выход",
+    "信号": "сигнал",
+    "线性": "линейн",
+    "因果": "причинн",
+    "稳定": "устойчив",
+    "响应": "отклик",
+    "频率": "частота",
+    "函数": "функция",
+    "时间": "время",
+    "滤波": "фильтр",
+  };
+  return s.replace(CJK_RUN, (run) => MAP[run] ?? "");
+}
+
 /** Main entrypoint — apply all polish passes. */
 export function polishRu(md: string): string {
-  let out = dropBoilerplate(md);
+  let out = scrubCJK(md);
+  out = dropBoilerplate(out);
   out = processOutsideMath(out, (chunk: string): string => {
     chunk = fixSubparts(chunk);
     chunk = fixEnglishPhrases(chunk);
