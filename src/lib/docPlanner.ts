@@ -27,6 +27,8 @@ import type { DocPlan, DocBlock, ExtractedDoc } from "./types";
 
 /* ─── Prompts ──────────────────────────────────── */
 
+// kept for reference; vision-OCR prompt is now used for all pages
+// @ts-expect-error unused after switching to always-image strategy
 const DOC_TRANSLATE_PROMPT = (lang: string) =>
   `You are a senior technical translator specializing in academic and engineering literature for Russian universities.
 
