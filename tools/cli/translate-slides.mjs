@@ -14,7 +14,7 @@ import { cropFiguresForPages } from "./lib/figureCrop.mjs";
 
 const apiKey = process.env.MIMO_API_KEY;
 if (!apiKey) { console.error("MIMO_API_KEY not set"); process.exit(1); }
-const MODEL = process.env.MODEL || "mimo-v2.5-pro";
+const MODEL = process.env.MODEL || "mimo-v2.5";
 
 const inputs = process.argv.slice(2);
 if (!inputs.length) { console.error("usage: node translate-slides.mjs <pdf...>"); process.exit(1); }
