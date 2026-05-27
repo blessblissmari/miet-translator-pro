@@ -11,16 +11,22 @@ export function latexToOmml(latex: string, display = false): string {
   try {
     mathml = temml.renderToString(cleanLatex, { displayMode: display, throwOnError: false });
   } catch {
-    return fallbackOmml(cleanLatex);
+    return wrapDisplay(fallbackOmml(cleanLatex), display);
   }
   try {
     const mathEl = parseMathml(mathml);
-    if (!mathEl) return fallbackOmml(cleanLatex);
+    if (!mathEl) return wrapDisplay(fallbackOmml(cleanLatex), display);
     const inner = mathmlToOmmlChildren(mathEl);
-    return `<m:oMath xmlns:m="http://schemas.openxmlformats.org/officeDocument/2006/math">${inner}</m:oMath>`;
+    const oMath = `<m:oMath xmlns:m="http://schemas.openxmlformats.org/officeDocument/2006/math">${inner}</m:oMath>`;
+    return wrapDisplay(oMath, display);
   } catch {
-    return fallbackOmml(cleanLatex);
+    return wrapDisplay(fallbackOmml(cleanLatex), display);
   }
+}
+
+function wrapDisplay(oMath: string, display: boolean): string {
+  if (!display) return oMath;
+  return `<m:oMathPara xmlns:m="http://schemas.openxmlformats.org/officeDocument/2006/math"><m:oMathParaPr><m:jc m:val="center"/></m:oMathParaPr>${oMath}</m:oMathPara>`;
 }
 
 /* ── MathML parsing ─────────────────────────────────────── */

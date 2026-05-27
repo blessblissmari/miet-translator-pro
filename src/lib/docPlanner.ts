@@ -24,6 +24,7 @@ import {
   type PlannerOpts,
 } from "./plannerShared";
 import type { DocPlan, DocBlock, ExtractedDoc } from "./types";
+import { detectFigures, cropFigures } from "./figureDetect";
 
 /* ─── Prompts ──────────────────────────────────── */
 
@@ -325,57 +326,55 @@ export async function planDoc(
         allBlocks.push({ type: "para", text: page.text.trim() });
     }
 
-    const pageW = page.width || 1;
-    const pageH = page.height || 1;
-    // Filter: keep all reasonably-sized figures. Previous threshold of 0.7
-    // dropped near-full-page raster figures (scans, diagrams, charts) which
-    // is the most common figure type in MIET coursework. Allow up to 0.95
-    // so we only skip true page-background scans.
-    const realFigs = (page.images || []).filter((im) => {
-      const coverage = (im.w * im.h) / (pageW * pageH);
-      return coverage > 0.005 && coverage < 0.95;
-    });
-    for (let k = 0; k < realFigs.length; k++) {
-      allBlocks.push({
-        type: "figure",
-        imageDataUrl: realFigs[k].dataUrl,
-        caption:
-          realFigs.length === 1
-            ? `Рис. ${i + 1}`
-            : `Рис. ${i + 1}.${k + 1}`,
-      });
-    }
-
-    // Fallback: if pdfjs found no embedded raster but the translation
-    // references a figure, the figure is likely vector-only (TikZ / matplotlib
-    // PDF export). Drop in the full-page render so the figure isn't lost.
-    if (realFigs.length === 0 && r.ok) {
-      const translated = r.value
-        .map((b) =>
-          b.type === "para" || b.type === "h1" || b.type === "h2" || b.type === "h3"
-            ? b.text
-            : b.type === "list"
-              ? b.items.join(" ")
-              : "",
-        )
-        .join("\n");
-      const mentionsFig =
-        /\(\s*см\.?\s*рис(?:унок|\.)?[^)]*\)/i.test(translated) ||
-        /!\[[^\]]*\]\([^)]+\)/.test(translated) ||
-        /\b(?:figure|fig\.?)\s*\d+/i.test(translated);
-      if (mentionsFig && page.imageDataUrl) {
-        try {
-          const figUrl = await downsampleDataUrl(page.imageDataUrl, { maxDim: 1400 });
-          allBlocks.push({
-            type: "figure",
-            imageDataUrl: figUrl,
-            caption: `Рис. ${i + 1} (страница оригинала)`,
-          });
-        } catch {
-          /* ignore — don't fail the whole doc over a fallback figure */
+    // Figure extraction: ask vision model for bboxes, crop them.
+    let figures: Array<{ dataUrl: string; caption?: string }> = [];
+    if (page.imageDataUrl) {
+      try {
+        const bboxes = await detectFigures(page.imageDataUrl, {
+          apiKey: opts.apiKey,
+          model: opts.model,
+          signal: opts.signal,
+        });
+        if (bboxes.length > 0) {
+          const cropped = await cropFigures(page.imageDataUrl, bboxes);
+          figures = cropped.map((c) => ({
+            dataUrl: c.dataUrl,
+            caption: c.bbox.caption,
+          }));
+          opts.onLog?.(`Стр. ${i + 1}: vision нашёл ${figures.length} рисунк(ов)`);
         }
+      } catch (e) {
+        opts.onLog?.(`Стр. ${i + 1}: детекция рисунков пропущена (${String(e).slice(0, 60)})`);
       }
     }
+
+    // Fallback to pdfjs-embedded rasters ONLY if vision returned nothing.
+    if (figures.length === 0 && page.images && page.images.length) {
+      const pageW = page.width || 1;
+      const pageH = page.height || 1;
+      const realFigs = page.images.filter((im) => {
+        const coverage = (im.w * im.h) / (pageW * pageH);
+        return coverage > 0.005 && coverage < 0.85;
+      });
+      figures = realFigs.map((f) => ({ dataUrl: f.dataUrl }));
+      if (figures.length)
+        opts.onLog?.(`Стр. ${i + 1}: использую ${figures.length} pdfjs-картин(ок)`);
+    }
+
+    for (let k = 0; k < figures.length; k++) {
+      const f = figures[k];
+      allBlocks.push({
+        type: "figure",
+        imageDataUrl: f.dataUrl,
+        caption:
+          f.caption
+          || (figures.length === 1
+            ? `Рис. ${i + 1}`
+            : `Рис. ${i + 1}.${k + 1}`),
+      });
+    }
+    // NO whole-page fallback. If the model finds no figures and pdfjs has none,
+    // the page is treated as text-only.
   }
 
   if (errors.length === extracted.pages.length) {

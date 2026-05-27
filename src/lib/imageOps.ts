@@ -105,3 +105,40 @@ export function dataUrlMime(dataUrl: string): string {
   const m = dataUrl.match(/^data:([^;,]+)/);
   return m ? m[1] : "application/octet-stream";
 }
+
+/** Crop a region from a data URL given normalized 0..1 coordinates.
+ *  Adds a small padding (default 1%) so labels/borders aren't clipped. */
+export async function cropDataUrl(
+  dataUrl: string,
+  bbox: { x: number; y: number; w: number; h: number },
+  opts: { padding?: number; maxDim?: number; quality?: number } = {},
+): Promise<string> {
+  const padding = opts.padding ?? 0.01;
+  const maxDim = opts.maxDim ?? 1400;
+  const quality = opts.quality ?? 0.88;
+  const img = await loadImage(dataUrl);
+  const W = img.naturalWidth, H = img.naturalHeight;
+  if (!W || !H) return dataUrl;
+  const x = Math.max(0, (bbox.x - padding)) * W;
+  const y = Math.max(0, (bbox.y - padding)) * H;
+  const w = Math.min(1, (bbox.w + padding * 2)) * W;
+  const h = Math.min(1, (bbox.h + padding * 2)) * H;
+  const sx = Math.round(x), sy = Math.round(y);
+  const sw = Math.max(1, Math.round(Math.min(W - sx, w)));
+  const sh = Math.max(1, Math.round(Math.min(H - sy, h)));
+  // Scale down if huge
+  const longest = Math.max(sw, sh);
+  const ratio = longest > maxDim ? maxDim / longest : 1;
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.max(1, Math.round(sw * ratio));
+  canvas.height = Math.max(1, Math.round(sh * ratio));
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return dataUrl;
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = "high";
+  ctx.drawImage(img, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
+  return canvas.toDataURL("image/jpeg", quality);
+}
+
