@@ -186,15 +186,32 @@ export async function submitFileTask(
     throw new Error(`MinerU upload-url error: ${reqJson.msg ?? "unknown"}`);
   }
   const { batch_id, file_urls } = reqJson.data;
-  // Step 2 — PUT the file to the signed URL. The signed URL passed through
-  // the CORS proxy, so we must route the PUT through the same proxy.
-  const putRes = await fetch(`https://corsproxy.io/?${file_urls[0]}`, {
-    method: "PUT",
-    body: file,
-    signal: opts.signal,
-  });
-  if (!putRes.ok) {
-    throw new Error(`MinerU PUT failed: HTTP ${putRes.status}`);
+  // Step 2 — PUT the file to the signed URL. We try a DIRECT PUT first,
+  // because routing through corsproxy.io corrupts the Alibaba S3 signature
+  // (Host / Content-Type rewrites) and yields HTTP 403. MinerU's signed URLs
+  // typically include the right CORS headers so direct PUT works from the
+  // browser. If direct fails (older URLs, certain regions), fall back to the
+  // proxy as a last resort.
+  let putRes: Response;
+  try {
+    putRes = await fetch(file_urls[0], {
+      method: "PUT",
+      body: file,
+      signal: opts.signal,
+    });
+    if (!putRes.ok) throw new Error(`direct PUT HTTP ${putRes.status}`);
+  } catch (e) {
+    // Direct failed (CORS or 403). Try via proxy as a fallback.
+    putRes = await fetch(`https://corsproxy.io/?${file_urls[0]}`, {
+      method: "PUT",
+      body: file,
+      signal: opts.signal,
+    });
+    if (!putRes.ok) {
+      throw new Error(
+        `MinerU PUT failed: HTTP ${putRes.status} (direct: ${(e as Error).message})`,
+      );
+    }
   }
   return batch_id;
 }

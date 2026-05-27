@@ -47,29 +47,35 @@ export function normalizeMathDelims(text: string): string {
 }
 
 export function wrapOrphanLatex(text: string): string {
-  // Split on existing $$...$$ and $...$ blocks so we only touch non-math parts.
+  // Conservative wrapper: only touches segments OUTSIDE existing $...$ blocks.
+  // We only wrap two safe patterns:
+  //   A) Sequences that begin with a backslash command and stay LaTeX-shaped
+  //      (e.g. \mathcal{H}\{x[n]\}, \delta[n-2], \frac{...}{...}).
+  //   B) Standalone identifier-with-bracket-subscript like x[n], y_1[n+1],
+  //      provided the identifier is a single ASCII letter (not a Cyrillic
+  //      word) and the surroundings look math-y.
+  //
+  // We intentionally do NOT try to wrap whole equations across spaces — the
+  // model's prompt is responsible for that; over-eager wrapping breaks
+  // Russian prose containing brackets.
   const parts = text.split(/(\$\$[\s\S]*?\$\$|\$[^$\n]+?\$)/g);
   for (let i = 0; i < parts.length; i += 2) {
     let seg = parts[i];
-    // 1. Wrap runs that begin with a backslash command and may contain more
-    //    commands, braces, subscripts, operators (e.g. \\mathcal{H}\\{x[n]\\}).
+    // A) backslash commands with optional braced args + simple tails
     seg = seg.replace(
-      /(\\[A-Za-z]+(?:\{[^{}\n]{0,80}\}|\\\{[^{}\n]{0,80}\\\})*(?:[_^]\{?[A-Za-z0-9+\-]{1,12}\}?)*(?:[\s]?[+\-=*/,.]?[\s]?[A-Za-z0-9_^\[\]\\{}+\-*/=,. ]{0,40})*)/g,
-      (m) => /[\\{}]/.test(m) && m.trim().length > 1 ? `$${m.trim()}$` : m,
+      /\\[A-Za-z]+(?:\{[^{}\n]{0,60}\}|\\\{[^{}\n]{0,60}\\\})*(?:[_^]\{?[A-Za-z0-9+\-]{1,8}\}?)?(?:\[[A-Za-z0-9_+\-]{1,12}\])?/g,
+      (m) => `$${m}$`,
     );
-    // 2. Wrap inline subscript identifiers like x_1[n], y[n+1], y_4[n], H{x[n]}.
+    // B) standalone x[n] / y_1[n+1] (single ASCII letter + optional _sub + [..])
     seg = seg.replace(
-      /\b([A-Za-zα-ωΑ-Ω])(?:_\{?[A-Za-z0-9+\-]{1,8}\}?)?\s*[\[\{][a-zA-Z0-9_+\-\s]{1,30}[\]\}](?:\s*=\s*[A-Za-z0-9α-ωΑ-Ω\s_+\-*/^.,()\[\]\\{}δ]{2,80})?/g,
-      (m) => {
-        // Skip if it's already inside a code span or markdown link.
-        if (m.length < 4) return m;
-        return `$${m.trim()}$`;
-      },
+      /(^|[\s(,;:\u00BB\u2014\-])([A-Za-z])(_\{?[A-Za-z0-9+\-]{1,3}\}?)?\[([A-Za-z0-9_+\-]{1,6})\](?=$|[\s).,;:!?\u00AB\-=])/g,
+      (_m, pre, letter, sub, idx) => `${pre}$${letter}${sub || ""}[${idx}]$`,
     );
     parts[i] = seg;
   }
   return parts.join("");
 }
+
 
 /** Convert Markdown (with $...$ / $$...$$ math) into DocBlock[]. */
 export function parseMarkdownToBlocks(md: string): DocBlock[] {
