@@ -115,6 +115,31 @@ export function preprocessLatex(latex: string): string {
   //    U+200B..U+200F, U+2028, U+2029, U+FEFF.
   s = s.replace(/[\u200B-\u200F\u2028\u2029\uFEFF]/g, "");
 
+  // 0b) Collapse LaTeX spacing macros and empty groups that the model uses
+  //     to "format" what should be a single macro:
+  //       `\d\;elta` / `\d{}elta` / `\d\,elta` → `\delta` (when known).
+  //     We replace any sequence of separators (whitespace, `{}`, or a
+  //     spacing macro like `\,` `\;` `\quad` `\ `) sitting between two
+  //     `\?<letters>` runs that join to a known command, then re-run
+  //     until convergence.
+  const SEP = String.raw`(?:\s|\{\}|\\[,;:!>\s]|\\(?:quad|qquad|thinspace|medspace|thickspace|;|,|:|!|>|\s))`;
+  const collapseRe = new RegExp(`\\\\([A-Za-z]+)(?:${SEP})+([A-Za-z]+)`, "g");
+  for (let pass = 0; pass < 6; pass++) {
+    const next = s.replace(collapseRe, (m, a, b) => {
+      const joined = `${a}${b}`;
+      for (let len = joined.length; len >= 2; len--) {
+        const head = joined.slice(0, len);
+        if (KNOWN_CMD_SET.has(head)) {
+          const tail = joined.slice(len);
+          return `\\${head}${tail ? " " + tail : ""}`;
+        }
+      }
+      return m;
+    });
+    if (next === s) break;
+    s = next;
+  }
+
   // 1) Repair `\\` immediately followed by an alpha that starts a known macro.
   //    `\\mathcal{H}` (from JSON over-escape or model confusion) → `\mathcal{H}`.
   //    Only do this when the resulting `\name` is a known command — otherwise
